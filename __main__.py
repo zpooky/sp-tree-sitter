@@ -10,4 +10,8 @@ C_LANGUAGE = Language('build/languages.so', 'c')
 parser = Parser()
 parser.set_language(C_LANGUAGE)
 
-parser.
+f = open("cluster.c", "r")
+source = f.read()
+tree = parser.parse(bytes(source, "utf8"))
+
+print(tree)

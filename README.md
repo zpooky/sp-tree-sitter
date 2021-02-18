@@ -4,9 +4,10 @@ npm install -g tree-sitter-cli
 poetry install
 
 ##
-poetry run .
+poetry run python .
 
 ##
+git clone https://github.com/tree-sitter/py-tree-sitter.git
 https://pypi.org/project/tree-sitter/
 https://github.com/nvim-treesitter/nvim-treesitter
 
