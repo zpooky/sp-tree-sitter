@@ -1,0 +1,18 @@
+[[package]]
+name = "tree-sitter"
+version = "0.2.2"
+description = "Python bindings to the Tree-sitter parsing library"
+category = "main"
+optional = false
+python-versions = ">=3.3"
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.8"
+content-hash = "9a073d13344bec338fc94ab3687eeb1d685dbfdeb8e527897520891d789fcffe"
+
+[metadata.files]
+tree-sitter = [
+    {file = "tree_sitter-0.2.2-cp38-cp38-macosx_10_14_x86_64.whl", hash = "sha256:15e7616f0e41127ca70880a40301a6ebfe58ce92db4f142eac775a38e9c38cec"},
+    {file = "tree_sitter-0.2.2.tar.gz", hash = "sha256:2618b781b065d419237dcd234f7a7cd68920c4f15c6809a99ed2c2dfd6d15d01"},
+]
