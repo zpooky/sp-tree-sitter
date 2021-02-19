@@ -2,31 +2,31 @@
 # -*- coding: utf-8 -*-
 
 import os
-from tree_sitter import Language, Parser
+# from tree_sitter import Language, Parser
+import tree_sitter as ts
 
-Language.build_library('build/languages.so',
+ts.Language.build_library('build/languages.so',
                        ['lang/tree-sitter-c', 'lang/tree-sitter-python'])
-C_LANGUAGE = Language('build/languages.so', 'c')
-PY_LANGUAGE = Language('build/languages.so', 'python')
+C_LANGUAGE = ts.Language('build/languages.so', 'c')
+PY_LANGUAGE = ts.Language('build/languages.so', 'python')
 
-parser = Parser()
+parser = ts.Parser()
 parser.set_language(C_LANGUAGE)
-#
-# # f = open("cluster.c", "rb")
-# # source = f.read()
-# # tree = parser.parse(source)
-tmp = """
-int main(){
-  return 0;
-}
-"""
-# tmp = """
-# def foo():
-#     if bar:
-#         baz()
-# """
-bytecode = bytes(tmp, "utf8")
-tree = parser.parse(bytecode)
+
+file = "test.c"
+if 1 == 1:
+  f = open(file, "rb")
+  bytecode = f.read()
+  tree = parser.parse(bytecode)
+else:
+  tmp = """
+  int main() {
+    return 0;
+  }
+  """
+  bytecode = bytes(tmp, "utf8")
+  tree = parser.parse(bytecode)
+
 #
 # cursor = tree.walk()
 # print(cursor.current_field_name())
@@ -56,24 +56,25 @@ def get_span(node):
   return str(bytecode[node.start_byte:node.end_byte], "utf8")
 
 
-def build_json_tree(node):
+def build_json(node):
   d = {
       "type": node.type,
   }
   if node.type == "string" or len(node.children) == 0:
     d['string'] = get_span(node)
   if len(node.children) > 0:
-    d["children"] = [build_json_tree(child) for child in node.children]
+    d["children"] = [build_json(child) for child in node.children]
   return d
 
 
-root_node = tree.root_node
-# print(root_node.type)
-# print(root_node)
+# print(tree.root_node.type)
+# print(tree.root_node)
 import pprint
-pprint.pprint(build_json_tree(root_node))
-# assert root_node.type == 'module'
-# assert root_node.start_point == (1, 0)
-# assert root_node.end_point == (3, 13)
+pprint.pprint(build_json(tree.root_node))
 
-# TODO try out query
+query_text = """
+(function_definition name: (identifier) @function.def)
+"""
+query = C_LANGUAGE.query(query_text)
+captures = query.captures(tree.root_node)
+
