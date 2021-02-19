@@ -1,5 +1,6 @@
 #
 ## install
+git submodule update --init
 npm install -g tree-sitter-cli
 poetry install
 
