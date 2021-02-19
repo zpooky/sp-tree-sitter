@@ -7,6 +7,15 @@ int main(){
   static int local_static;
   int local_data;
   volatile int local_volatile_data;
+{
+//shadow
+static int global_static;
+int global_data=0;
+
+++global_static;
+++global_data;
+
+}
   return 0;
 }
 
