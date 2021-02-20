@@ -1,3 +1,5 @@
+#define WASD 1
+
 static int global_static;
 extern int global_extern;
 int global_data;
@@ -10,7 +12,7 @@ int main(){
 {
 //shadow
 static int global_static;
-int global_data=0;
+int global_data=WASD;
 
 ++global_static;
 ++global_data;

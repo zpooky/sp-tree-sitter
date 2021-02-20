@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+# Cursor:
 # tree_cursor_methods[] = {
 #     .ml_name = "current_field_name",
 #     .ml_meth = (PyCFunction)tree_cursor_current_field_name,
@@ -34,6 +35,53 @@
 #                and return True. Otherwise, return False.",
 # };
 # {"node", (getter)tree_cursor_get_node, NULL, "The current node.", NULL},
+
+# Node:
+# static PyMethodDef node_methods[] = {
+#     .ml_name = "walk",
+#     .ml_meth = (PyCFunction)node_walk,
+#     .ml_flags = METH_NOARGS,
+#     .ml_doc = "walk()\n--\n\n\
+#                Get a tree cursor for walking the tree starting at this node.",
+#
+#     .ml_name = "sexp",
+#     .ml_meth = (PyCFunction)node_sexp,
+#     .ml_flags = METH_NOARGS,
+#     .ml_doc = "sexp()\n--\n\n\
+#                Get an S-expression representing the node.",
+#
+#     .ml_name = "child_by_field_id",
+#     .ml_meth = (PyCFunction)node_chield_by_field_id,
+#     .ml_flags = METH_VARARGS,
+#     .ml_doc = "child_by_field_id(id)\n--\n\n\
+#                Get child for the given field id.",
+#
+#     .ml_name = "child_by_field_name",
+#     .ml_meth = (PyCFunction)node_chield_by_field_name,
+#     .ml_flags = METH_VARARGS,
+#     .ml_doc = "child_by_field_name(name)\n--\n\n\
+#                Get child for the given field name.",
+# };
+#
+# static PyGetSetDef node_accessors[] = {
+#   {"type", (getter)node_get_type, NULL, "The node's type", NULL},
+#   {"is_named", (getter)node_get_is_named, NULL, "Is this a named node", NULL},
+#   {"is_missing", (getter)node_get_is_missing, NULL, "Is this a node inserted by the parser", NULL},
+#   {"has_changes", (getter)node_get_has_changes, NULL, "Does this node have text changes since it was parsed", NULL},
+#   {"has_error", (getter)node_get_has_error, NULL, "Does this node contain any errors", NULL},
+#   {"start_byte", (getter)node_get_start_byte, NULL, "The node's start byte", NULL},
+#   {"end_byte", (getter)node_get_end_byte, NULL, "The node's end byte", NULL},
+#   {"start_point", (getter)node_get_start_point, NULL, "The node's start point", NULL},
+#   {"end_point", (getter)node_get_end_point, NULL, "The node's end point", NULL},
+#   {"children", (getter)node_get_children, NULL, "The node's children", NULL},
+#   {"child_count", (getter)node_get_child_count, NULL, "The number of children for a node", NULL},
+#   {"named_child_count", (getter)node_get_named_child_count, NULL, "The number of named children for a node", NULL},
+#   {"next_sibling", (getter)node_get_next_sibling, NULL, "The node's next sibling", NULL},
+#   {"prev_sibling", (getter)node_get_prev_sibling, NULL, "The node's previous sibling", NULL},
+#   {"next_named_sibling", (getter)node_get_next_named_sibling, NULL, "The node's next named sibling", NULL},
+#   {"prev_named_sibling", (getter)node_get_prev_named_sibling, NULL, "The node's previous named sibling", NULL},
+#   {"parent", (getter)node_get_parent, NULL, "The node's parent", NULL},
+#   };
 
 import os
 # from tree_sitter import Language, Parser
@@ -81,11 +129,19 @@ def get_span(node):
 
 def is_global(node):
   res = True
-  cursor = node.walk()
-  if not cursor is None:
-    print(cursor.node)
-    cursor.goto_parent()
-    print(cursor.node)
+  # cursor = node.walk()
+  # if not cursor is None:
+  #   print(cursor.node)
+  #   # cursor.goto_parent()
+  #   cursor.goto_first_child()
+  #   print(cursor.node)
+  # print(node)
+  while node.parent is not None:
+    # print(node.type)
+    if node.type == "function_definition":
+      res = False
+      break
+    node = node.parent
   return res
 
 
