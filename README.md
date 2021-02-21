@@ -21,3 +21,17 @@ https://github.com/p00f/nvim-ts-rainbow/blob/adad3ea7eb820b7e0cc926438605e7637ee
 
 ##
 https://github.com/tree-sitter/tree-sitter-c
+
+##
+```vim
+syn keyword cGlobalVariable <Variable>
+" Unfortunately, the granularity for removal of syntax items is limited to whole syntax groups (here: cGlobalVariable)
+syn clear cGlobalVariable
+```
+
+au Syntax c call MyCadd()
+function MyCadd()
+  syn keyword cMyItem contained Ni
+  syn cluster cCommentGroup add=cMyItem
+  hi link cMyItem Title
+endfun
