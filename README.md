@@ -37,50 +37,7 @@ function MyCadd()
 endfun
 
 -------------------------------------------------------------------------------
-TODO no syntax keyword:
-```
-static const char ibmvnic_driver_name[] = "ibmvnic";
-
-(translation_unit 
- (declaration (storage_class_specifier) 
-              (type_qualifier) 
-              type: (primitive_type)
-              declarator: (init_declarator 
-                           declarator: (array_declarator declarator: (identifier)) 
-                           value: (string_literal))
- )
-)
-```
-TODO no syntax keyword:
-```
-static const char ibmvnic_driver_name[];
-
-(translation_unit 
-  (declaration (storage_class_specifier) 
-               (type_qualifier) 
-               type: (primitive_type) 
-               declarator: (array_declarator
-                            declarator: (identifier)
-                            )
-  )
-)
-```
-
-TODO no syntax keyword:
-```
-int (*global_fp)(int*);
-
-(translation_unit 
-  (declaration type: (primitive_type) 
-                      declarator: (function_declarator 
-                                   declarator: (parenthesized_declarator 
-                                               (pointer_declarator declarator: (identifier))
-                                               )
-                                   parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (abstract_pointer_declarator)))
-                                   )
-  )
-)
-```
+TODO local shadow of global variable
 ```
 TODO: __malloc gets highligted
 
