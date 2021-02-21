@@ -178,6 +178,9 @@ query_text = """
 query_text = """
 declarator: (array_declarator declarator: (identifier) @id)
 """
+query_text = """
+declarator: (parenthesized_declarator (pointer_declarator declarator: (identifier) @id))
+"""
 
 query = C_LANGUAGE.query(query_text)
 captures = query.captures(tree.root_node)
