@@ -35,3 +35,71 @@ function MyCadd()
   syn cluster cCommentGroup add=cMyItem
   hi link cMyItem Title
 endfun
+
+-------------------------------------------------------------------------------
+TODO no syntax keyword:
+```
+static const char ibmvnic_driver_name[] = "ibmvnic";
+
+(translation_unit 
+ (declaration (storage_class_specifier) 
+              (type_qualifier) 
+              type: (primitive_type)
+              declarator: (init_declarator 
+                           declarator: (array_declarator declarator: (identifier)) 
+                           value: (string_literal))
+ )
+)
+```
+TODO no syntax keyword:
+```
+static const char ibmvnic_driver_name[];
+
+(translation_unit 
+  (declaration (storage_class_specifier) 
+               (type_qualifier) 
+               type: (primitive_type) 
+               declarator: (array_declarator
+                            declarator: (identifier)
+                            )
+  )
+)
+```
+
+TODO no syntax keyword:
+```
+int (*global_fp)(int*);
+
+(translation_unit 
+  (declaration type: (primitive_type) 
+                      declarator: (function_declarator 
+                                   declarator: (parenthesized_declarator 
+                                               (pointer_declarator declarator: (identifier))
+                                               )
+                                   parameters: (parameter_list (parameter_declaration type: (primitive_type) declarator: (abstract_pointer_declarator)))
+                                   )
+  )
+)
+```
+```
+TODO: __malloc gets highligted
+
+extern __printf(3, 0)
+char *devm_kvasprintf() __malloc;
+
+(translation_unit 
+	(declaration (storage_class_specifier)
+	 type: (macro_type_specifier 
+				  name: (identifier)
+				 (ERROR (number_literal) 
+								(number_literal)
+							  (type_descriptor type: (primitive_type) declarator: (abstract_pointer_declarator))
+				 )
+				 type: (type_descriptor type: 
+							 (type_identifier) 
+							 declarator: (abstract_function_declarator parameters: (parameter_list))) (MISSING ")")
+	) declarator: (identifier))
+)
+__malloc: global:True
+
+```
