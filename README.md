@@ -37,6 +37,40 @@ function MyCadd()
 endfun
 
 -------------------------------------------------------------------------------
+# TODO better tree refresh
+```
+
+./src/nvim/lua/treesitter.h
+./src/nvim/lua/treesitter.c
+
+./runtime/doc/treesitter.txt
+./runtime/lua/vim/treesitter.lua
+
+~/sources/neovim/runtime/lua/vim/treesitter:
+.
+├── highlighter.lua
+├── language.lua
+├── languagetree.lua
+└── query.lua
+
+
+
+/home/spooky/sources/neovim/runtime/lua/vim/treesitter/languagetree.lua
+--- Registers callbacks for the parser
+-- @param cbs An `nvim_buf_attach`-like table argument with the following keys :
+--  `on_bytes` : see `nvim_buf_attach`, but this will be called _after_ the parsers callback.
+--  `on_changedtree` : a callback that will be called every time the tree has syntactical changes.
+--      it will only be passed one argument, that is a table of the ranges (as node ranges) that
+--      changed.
+--  `on_child_added` : emitted when a child is added to the tree.
+--  `on_child_removed` : emitted when a child is removed from the tree.
+function LanguageTree:register_cbs(cbs)
+
+vim.treesitter.get_parser()
+```
+
+
+-------------------------------------------------------------------------------
 TODO local shadow of global variable
 ```
 TODO: __malloc gets highligted
@@ -59,4 +93,12 @@ char *devm_kvasprintf() __malloc;
 )
 __malloc: global:True
 
+```
+
+TODO
+```
+static int global_static_init = 1;
+extern char* global_extern_init = "wasd";
+const float global_data_init = 1.f;
+volatile float global_volatile_data_init = global_data_init;
 ```

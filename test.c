@@ -1,5 +1,10 @@
 #define WASD 1
 
+static int global_static_init = 1;
+extern char* global_extern_init = "wasd";
+const float global_data_init = 1.f;
+volatile float global_volatile_data_init = global_data_init;
+
 static int global_static;
 extern int global_extern;
 int global_data;
