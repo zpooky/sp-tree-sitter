@@ -15,8 +15,10 @@ struct global_struct {
   int d;
 } global_static_struct_instance;
 
-static const char ibmvnic_driver_name[] = "ibmvnic";
+static const char mvnic_driver_name[] = "ibmvnic";
 static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
+
+int kx;
 
 struct struct_wasd {
   int dummy2;

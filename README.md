@@ -70,9 +70,25 @@ vim.treesitter.get_parser()
 ```
 
 
+```vim
+function! s:FoldableRegion(tag, name, expr)
+  let synexpr = 'syntax region ' . a:name . ' ' . a:expr
+  let pfx = 'g:lua_syntax_fold_'
+  if !exists('g:lua_syntax_nofold') || exists(pfx . a:tag) || exists(pfx . a:name)
+    let synexpr .= ' fold'
+  end
+  exec synexpr
+endfunction
+
+" Symbols
+call s:FoldableRegion('table', 'luaTable',
+      \ 'transparent matchgroup=luaBraces start="{" end="}" contains=@luaExpr')
+```
+
+
 -------------------------------------------------------------------------------
 TODO local shadow of global variable
-```
+```c
 TODO: __malloc gets highligted
 
 extern __printf(3, 0)
@@ -92,7 +108,6 @@ char *devm_kvasprintf() __malloc;
 	) declarator: (identifier))
 )
 __malloc: global:True
-
 ```
 
 TODO
