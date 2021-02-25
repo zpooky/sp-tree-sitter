@@ -7,3 +7,6 @@
 [submodule "lang/tree-sitter-python"]
 	path = lang/tree-sitter-python
 	url = https://github.com/tree-sitter/tree-sitter-python.git
+[submodule "tree-sitter"]
+	path = tree-sitter
+	url = https://github.com/tree-sitter/tree-sitter.git

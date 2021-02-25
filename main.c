@@ -1,5 +1,6 @@
-#include <tree-sitter/api.h>
+#include <tree_sitter/api.h>
 
+#include <string.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +11,9 @@
 /* API:
  * /home/spooky/sources/tree-sitter/lib/include/tree_sitter
  */
+
+extern const TSLanguage *
+tree_sitter_c(void);
 
 static char *
 mmap_file(const char *file, size_t *bytes)
@@ -39,36 +43,52 @@ mmap_file(const char *file, size_t *bytes)
 int
 main()
 {
-  TSTree *old_tree = NULL;
-  TSTree *new_tree = NULL;
-  TSParser *parser = ts_parser_new();
-  TSLanguage *lang = lang_parser(); // autgenerated?
+  TSTree *old_tree      = NULL;
+  TSTree *old_tree_copy = NULL;
+  TSTree *new_tree      = NULL;
+  TSParser *parser      = ts_parser_new();
+  TSLanguage *lang      = tree_sitter_c();
+
+  char initial[128]        = {0};
+  char updated[128]        = {0};
+  const char *original     = "int dummy;";
+  const char *update       = "struct argh *member;";
+  const char *file_pattern = "struct st {\n%s\n} instance;";
+  sprintf(initial, file_pattern, original);
+  sprintf(updated, file_pattern, update);
 
   ts_parser_set_language(parser, lang);
-  {
-    /* inital tree */
-    /* size_t bytes; */
-    /* char *content = mmap_file("./test.c", &bytes); */
-    const char *content = "struct st {\n"
-                          "int dummy;\n"
-                          "} instance;\n";
-    bytes = strlen(content);
-
-    old_tree = ts_parser_parse_string(parser, NULL, content, bytes);
+  /* inital tree */
+  old_tree = ts_parser_parse_string(parser, NULL, initial, strlen(initial));
+  if (!old_tree) {
+    return 1;
   }
 
-  /* ts_tree_print_dot_graph(old_tree, FILE *); */
+  /* ts_tree_print_dot_graph(old_tree, stdout); */
+  /* printf("%s\n", ts_node_string(ts_tree_root_node(old_tree))); */
   {
     /* make some change */
-    const char *content = "struct st {\n"
-                          "char dummy;\n"
-                          "} instance;\n";
-    bytes            = strlen(content);
-    //TODO 
-    // do we edit to old_tree? to later get the new_tree? then we corrupt old_tree?
-    // I thought it was copy on write?
-    // Is this correct?
-    TSInputEdit edit = {};//TODO populate with all indeces
+    uint32_t start_byte = 12;
+    TSInputEdit edit    = {
+      .start_byte   = start_byte,
+      .old_end_byte = start_byte + (uint32_t)strlen(original),
+      .new_end_byte = start_byte + (uint32_t)strlen(update),
+      .start_point =
+        {
+          .row    = 1,
+          .column = 0,
+        },
+      .old_end_point =
+        {
+          .row    = 1,
+          .column = (uint32_t)strlen(original),
+        },
+      .new_end_point =
+        {
+          .row    = 1,
+          .column = (uint32_t)strlen(update),
+        },
+    };
 #if 0
 typedef struct {
   uint32_t start_byte;
@@ -78,23 +98,58 @@ typedef struct {
   TSPoint old_end_point;
   TSPoint new_end_point;
 } TSInputEdit;
+
+• on_bytes:
+ • start row of the changed text (zero-indexed)
+ • start column of the changed text
+ • byte offset of the changed text (from the start of the buffer)
+ • old end row of the changed text
+ • old end column of the changed text
+ • old end byte length of the changed text
+ • new end row of the changed text
+ • new end column of the changed text
+ • new end byte length of the changed text
+
+def _on_bytes(bufnr, changed_tick, start_row, start_col, start_byte, old_row, old_col, old_byte, new_row, new_col, new_byte)
+  local old_end_col = old_col + ((old_row == 0) and start_col or 0)
+  local new_end_col = new_col + ((new_row == 0) and start_col or 0)
+  tree.edit(start_byte,start_byte+old_byte,start_byte+new_byte,
+    start_row, start_col,
+    start_row+old_row, old_end_col,
+    start_row+new_row, new_end_col)
+
 #endif
+    old_tree_copy = ts_tree_copy(old_tree);
     ts_tree_edit(old_tree, &edit); /* -> void */
-    old_tree = ts_parser_parse_string(parser, old_tree, content, bytes);
-    if (old_tree && new_tree) {
-      size_t i;
-      /*delta*/
-      TSRange *changed; //array of $n_changed nodes
-      size_t n_changed;
-      // TODO:
-      // - we want to know about the new nodes
-      //   - run the query on range: to know what is removed
-      // - we also want to know about the delted nodes
-      //  - run the query on range: to know what is no longer there
-      changed = ts_tree_get_changed_ranges(old_tree, new_tree, &n_changed);
-      for(i=0;i<n_changed;++i){
+    new_tree =
+      ts_parser_parse_string(parser, old_tree, updated, strlen(updated));
+  }
+  /* printf("%s\n", ts_node_string(ts_tree_root_node(new_tree))); */
+  /*whats added*/
+  if (old_tree && new_tree) {
+    size_t i;
+    TSRange *changed; //array of $n_changed nodes
+    uint32_t n_changed;
+    // TODO:
+    // - we want to know about the new nodes
+    //   - run the query on range: to know what is removed
+    // - we also want to know about the delted nodes
+    //  - run the query on range: to know what is no longer there
+    changed = ts_tree_get_changed_ranges(old_tree, new_tree, &n_changed);
+    printf("added n_changed:%u\n", n_changed);
+    for (i = 0; i < n_changed; ++i) {
+      TSNode n;
+      n = ts_node_descendant_for_byte_range(ts_tree_root_node(new_tree),
+                                            changed[i].start_byte,
+                                            changed[i].end_byte);
 
-
+      if (!ts_node_is_null(n)) {
+        uint32_t s           = ts_node_start_byte(n);
+        uint32_t e           = ts_node_end_byte(n);
+        uint32_t span_length = e - s;
+        /* printf("%s\n", ts_node_string(n)); */
+        printf("%.*s\n", (int)span_length, &updated[s]);
+      }
 #if 0
 typedef struct {
   uint32_t row;
@@ -110,11 +165,34 @@ typedef struct {
 void ts_query_cursor_set_byte_range(TSQueryCursor *, uint32_t, uint32_t);
 #endif
 
+    } //for
+    free(changed);
+  } //if
 
+  /* whats removed */
+  if (old_tree_copy && new_tree) {
+    size_t i;
+    TSRange *changed; //array of $n_changed nodes
+    uint32_t n_changed;
 
-      }//for
-    }
+    changed = ts_tree_get_changed_ranges(old_tree, new_tree, &n_changed);
+    printf("removed n_changed:%u\n", n_changed);
+    for (i = 0; i < n_changed; ++i) {
+      TSNode n;
+      n = ts_node_descendant_for_byte_range(ts_tree_root_node(old_tree_copy),
+                                            changed[i].start_byte,
+                                            changed[i].end_byte);
+
+      if (!ts_node_is_null(n)) {
+        uint32_t s           = ts_node_start_byte(n);
+        uint32_t e           = ts_node_end_byte(n);
+        uint32_t span_length = e - s;
+        printf("%.*s\n", (int)span_length, &initial[s]);
+      }
+    } //for
+    free(changed);
   }
+
   ts_parser_delete(parser);
   return 0;
 }
