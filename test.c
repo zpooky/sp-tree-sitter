@@ -17,6 +17,7 @@ struct global_struct {
 
 static const char mvnic_driver_name[] = "ibmvnic";
 static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
+static const char ibmvnic_driver_arr[] = {{0},{""},1,1,1,};
 
 int kx;
 
@@ -24,13 +25,6 @@ struct struct_wasd {
   int dummy2;
   struct s *w;
 };
-
-static int global_static_init = 1;
-extern char* global_extern_init = "wasd";
-const char* global_extern_init = "wasd";
-
-const float global_data_init = 1.f;
-volatile float global_volatile_data_init = global_data_init;
 
 int
 main() {
@@ -80,4 +74,3 @@ struct some_struct {
   int (*struct_fp)(int adasd, struct asd *);
   volatile int (*struct_volatile_fp)(int adasd, struct asd *);
 } some_struct_instance;
-static int global_static_init = 1;

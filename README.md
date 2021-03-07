@@ -36,6 +36,31 @@ function MyCadd()
   hi link cMyItem Title
 endfun
 
+
+-------------------------------------------------------------------------------
+runtime/lua/vim/lsp/util.lua
+```lua
+--- Highlight range between two positions
+---
+--@param bufnr    number of buffer to apply highlighting to
+--@param ns       namespace to add highlight to
+--@param higroup  highlight group to use for highlighting
+--@param rtype    type of range (:help setreg, default charwise)
+--@param inclusive boolean indicating whether the range is end-inclusive (default false)
+function highlight.range(bufnr, ns, higroup, start, finish, rtype, inclusive)
+  rtype = rtype or 'v'
+  inclusive = inclusive or false
+
+  -- sanity check
+  if start[2] < 0 or finish[1] < start[1] then return end
+
+  local region = vim.region(bufnr, start, finish, rtype, inclusive)
+  for linenr, cols in pairs(region) do
+    api.nvim_buf_add_highlight(bufnr, ns, higroup, linenr, cols[1], cols[2])
+  end
+end
+```
+
 -------------------------------------------------------------------------------
 # TODO better tree refresh
 ```
@@ -110,10 +135,36 @@ char *devm_kvasprintf() __malloc;
 __malloc: global:True
 ```
 
-TODO
+TODO:
 ```
 static int global_static_init = 1;
 extern char* global_extern_init = "wasd";
+const char* global_extern_init = "wasd";
+
 const float global_data_init = 1.f;
 volatile float global_volatile_data_init = global_data_init;
 ```
+
+---------------------------------------------------------------------
+```
+TODO ~/sources/neovim/runtime/doc/treesitter.txt
+#1.
+<Create a parser for_ a buffer and a given language (if_ another plugin uses the
+same buffer/language combination, it will be safely reused) Use >
+    parser = vim.treesitter.get_parser(bufnr, lang)
+
+NB: to use the parser directly inside a |nvim_buf_attach| Lua callback, you must
+call get_parser() before you register your callback. But preferably parsing
+shouldnt be done directly in_ the change callback anyway as they will be very
+frequent. Rather a plugin that does any kind of analysis on a tree should use
+a timer to throttle too frequent updates.
+#2.
+- Registers callbacks for the parser
+@param cbs An `nvim_buf_attach`-like table argument with the following keys :
+ `on_bytes` : see `nvim_buf_attach`, but this will be called _after_ the parsers callback.
+ !! `on_changedtree` : a callback that will be called every time the tree has syntactical changes.  it will only be passed one argument, that is a table of the ranges (as node ranges) that changed.
+ `on_child_added` : emitted when a child is added to the tree.
+ `on_child_removed` : emitted when a child is removed from the tree.
+ function LanguageTree:register_cbs(cbs)
+```
+---------------------------------------------------------------------

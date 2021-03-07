@@ -156,7 +156,7 @@ def build_json(node):
   return d
 
 
-# print(tree.root_node.sexp())
+print(tree.root_node.sexp())
 
 # print(tree.root_node.type)
 # print(tree.root_node)
@@ -181,10 +181,17 @@ declarator: (array_declarator declarator: (identifier) @id)
 query_text = """
 declarator: (parenthesized_declarator (pointer_declarator declarator: (identifier) @id))
 """
+query_text = """
+declarator: (init_declarator declarator: (identifier) @id)
+"""
+
+query_text = """
+declarator: (init_declarator declarator: (pointer_declarator declarator: (identifier) @id) value: (string_literal))
+"""
 
 query = C_LANGUAGE.query(query_text)
 captures = query.captures(tree.root_node)
-# print(captures)
+print(len(captures))
 for i, (node, name) in enumerate(captures):
   # node_start = ','.join(map(str, node.start_point))
   # node_end = ','.join(map(str, node.end_point))
