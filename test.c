@@ -25,6 +25,13 @@ struct struct_wasd {
   struct s *w;
 };
 
+static int global_static_init = 1;
+extern char* global_extern_init = "wasd";
+const char* global_extern_init = "wasd";
+
+const float global_data_init = 1.f;
+volatile float global_volatile_data_init = global_data_init;
+
 int
 main() {
   static int local_static;
@@ -73,3 +80,4 @@ struct some_struct {
   int (*struct_fp)(int adasd, struct asd *);
   volatile int (*struct_volatile_fp)(int adasd, struct asd *);
 } some_struct_instance;
+static int global_static_init = 1;
