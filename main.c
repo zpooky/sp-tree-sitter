@@ -1,12 +1,10 @@
 #include <tree_sitter/api.h>
 
 #include <string.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <unistd.h>
 
 /* API:
  * /home/spooky/sources/tree-sitter/lib/include/tree_sitter
@@ -15,28 +13,6 @@
 extern const TSLanguage *
 tree_sitter_c(void);
 
-static char *
-mmap_file(const char *file, size_t *bytes)
-{
-  int fd;
-  char *addr;
-  struct stat sb;
-
-  if ((fd = open(file, O_RDONLY) < 0)) {
-    return NULL;
-  }
-
-  if (fstat(fd, &sb) < 0) {
-    return NULL;
-  }
-
-  *bytes = (size_t)sb.st_size;
-  addr   = mmap(NULL, *bytes, PROT_READ, MAP_PRIVATE, fd, 0);
-  if (addr == MAP_FAILED)
-    return NULL;
-
-  return (char *)addr;
-}
 
 int
 main(int argc, char *argv[])

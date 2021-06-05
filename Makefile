@@ -1,12 +1,15 @@
 # https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
-SOURCES = main.c
+PARSE_SOURCES = main.c shared.c
+STRUCT_SOURCES = struct.c shared.c
 # SOURCES = $(shell find . -iname "*.c" | grep -v '.ccls-cache' | xargs)
 # SOURCES = $(wildcard *.c)
 
 # BUILD_DIR = .
 # BUILD_DIR = build
 # OBJECTS = $(SOURCES:%.c=$(BUILD_DIR)/%.o)
-OBJECTS = $(SOURCES:.c=.o)
+PARSE_OBJECTS = $(PARSE_SOURCES:.c=.o)
+STRUCT_OBJECTS = $(STRUCT_SOURCES:.c=.o)
+OBJECTS = $(PARSE_OBJECTS) $(STRUCT_OBJECTS)
 
 DEPENDS = $(OBJECTS:.o=.d)
 
@@ -19,6 +22,7 @@ LDLIBS = -Ltree-sitter -l:libtree-sitter.a -Lbuild -l:languages.so
 LDFLAGS = -Wl,-rpath,build # write rpath to executable for where to find languages.so
 
 PROG = parse
+STRUCT = struct
 
 # default
 # CC = gcc
@@ -46,9 +50,12 @@ CFLAGS += -Wformat -Wformat-signedness
 endif
 
 .PHONEY: all
-all: $(PROG)
+all: $(PROG) $(STRUCT)
 
-$(PROG): $(OBJECTS)
+$(PROG): $(PARSE_OBJECTS)
+	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
+$(STRUCT): $(STRUCT_OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 -include $(DEPENDS)
@@ -58,5 +65,5 @@ $(PROG): $(OBJECTS)
 .PHONEY: clean
 clean:
 	$(RM) $(OBJECTS)
-	$(RM) $(PROG)
+	$(RM) $(PROG) $(STRUCT)
 	$(RM) $(DEPENDS)
