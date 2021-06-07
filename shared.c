@@ -40,6 +40,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     "} type_t;\n"
                     "struct sut {\n"
                     "  long long ll0;\n"
+                    "  unsigned long long ull1;\n"
                     "  long double ld0;\n"
                     "  int int0;\n"
                     "  gint int1;\n"

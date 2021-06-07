@@ -1,17 +1,19 @@
 # https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
-PARSE_SOURCES = main.c shared.c
-STRUCT_SOURCES = struct.c shared.c
+PARSE_SOURCES = main.c
+STRUCT_SOURCES = struct.c
+SHARED_SOURCES = shared.c sp_util.c sp_str.c
 # SOURCES = $(shell find . -iname "*.c" | grep -v '.ccls-cache' | xargs)
 # SOURCES = $(wildcard *.c)
 
 # BUILD_DIR = .
 # BUILD_DIR = build
-# OBJECTS = $(SOURCES:%.c=$(BUILD_DIR)/%.o)
+# SHARED_OBJECTS = $(SOURCES:%.c=$(BUILD_DIR)/%.o)
 PARSE_OBJECTS = $(PARSE_SOURCES:.c=.o)
 STRUCT_OBJECTS = $(STRUCT_SOURCES:.c=.o)
-OBJECTS = $(PARSE_OBJECTS) $(STRUCT_OBJECTS)
+SHARED_OBJECTS = $(SHARED_SOURCES:.c=.o)
+ALL_OBJECTS = $(PARSE_OBJECTS) $(STRUCT_OBJECTS) $(SHARED_OBJECTS)
 
-DEPENDS = $(OBJECTS:.o=.d)
+DEPENDS = $(ALL_OBJECTS:.o=.d)
 
 LDFLAGS = -fno-omit-frame-pointer -fstack-protector -fsanitize=address
 #-fsanitize=undefined
@@ -52,10 +54,10 @@ endif
 .PHONEY: all
 all: $(PROG) $(STRUCT)
 
-$(PROG): $(PARSE_OBJECTS)
+$(PROG): $(PARSE_OBJECTS) $(SHARED_OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(STRUCT): $(STRUCT_OBJECTS)
+$(STRUCT): $(STRUCT_OBJECTS) $(SHARED_OBJECTS)
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 -include $(DEPENDS)
@@ -64,6 +66,6 @@ $(STRUCT): $(STRUCT_OBJECTS)
 
 .PHONEY: clean
 clean:
-	$(RM) $(OBJECTS)
+	$(RM) $(ALL_OBJECTS)
 	$(RM) $(PROG) $(STRUCT)
 	$(RM) $(DEPENDS)
