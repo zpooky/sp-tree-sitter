@@ -155,9 +155,45 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
 
   tmp = sp_find_direct_child(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
+    //TODO strdup
     if (result || (result = calloc(1, sizeof(*result)))) {
-      result->format = "TODO";
+      char *type = sp_struct_value(ctx, tmp);
+      if (strcmp(type, "char") == 0 || //
+          strcmp(type, "int8_t") == 0) {
+        result->format = "'%c'";
+      } else if (strcmp(type, "uchar") == 0 || //
+                 strcmp(type, "uint8_t") == 0) {
+        result->format = "'%d'";
+      } else if (strcmp(type, "short") == 0 || //
+                 strcmp(type, "int16_t") == 0) {
+        result->format = "%d";
+      } else if (strcmp(type, "int") == 0 || //
+                 strcmp(type, "int32_t") == 0) {
+        result->format = "%d";
+      } else if (strcmp(type, "unsigned") == 0 ||
+                 strcmp(type, "uint32_t") == 0) {
+        result->format = "%u";
+      } else if (strcmp(type, "long") == 0) {
+        result->format = "%ld";
+      } else if (strcmp(type, "off_t") == 0) {
+        result->format = "%jd";
+      } else if (strcmp(type, "size_t") == 0) {
+        result->format = "%zu";
+      } else if (strcmp(type, "ssize_t") == 0) {
+        result->format = "%zd";
+      } else if (strcmp(type, "uint64_t") == 0) {
+        result->format = "\"%\"PRIu64";
+      } else if (strcmp(type, "uintptr_t") == 0) {
+        result->format = "\"%\"PRIuPTR";
+      } else if (strcmp(type, "iintptr_t") == 0) {
+        result->format = "\"%\"PRIiPTR";
+      } else {
+        result->format = "TODO";
+      }
+      free(type);
     }
+  } else {
+    //TODO
   }
 
   if (result) {

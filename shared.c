@@ -62,6 +62,8 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     "  union { int i1; float f2; } anon_union0;\n"
                     "  union union_type union0;\n"
                     "  union_t union1;\n"
+                    "  size_t sz0;\n"
+                    "  ssize_t ssz0;\n"
                     "} instance;\n"
                     "\0";
   result->length = strlen(result->content);
