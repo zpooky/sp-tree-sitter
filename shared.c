@@ -19,6 +19,17 @@ mmap_file(const char *file, struct sp_ts_file *result)
   struct stat st = {0};
   memset(&st, 0, sizeof(st));
 
+  /*
+   * TODO everything should be concattenated to a a single string. !Not multiple prints!!
+   * TODO struct asd s; -> sp_print_asd(&in->s);
+   * TODO struct asd *s; -> sp_print_asd(in->s);
+   * TODO asd_t s; -> sp_print_asd(&in->s);
+   * TODO asd_t *s; -> sp_print_asd(in->s);
+   * TODO const char* s; "%s",in->s
+   * TODO char s[256]; "%.s",256,in->s
+   * TODO xxx** s; "%p",in->s
+   */
+
   result->content = ""
                     "typedef enum enum_type {ENUM_X, ENUM_Y } enum_t;\n"
                     "typedef union union_type { int i1; float f2;} union_t;\n"
