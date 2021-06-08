@@ -123,6 +123,8 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
   uint32_t pointer = 0;
   char *type       = NULL;
 
+  /* TODO result->format, result->variable strdup() */
+
   tmp = sp_find_direct_child(subject, "field_identifier");
   if (!ts_node_is_null(tmp)) {
     if (result || (result = calloc(1, sizeof(*result)))) {
@@ -157,6 +159,7 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
 
   tmp = sp_find_direct_child(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
+    /* $primitive_type $field_identifier; */
     type = sp_struct_value(ctx, tmp);
   } else {
     tmp = sp_find_direct_child(subject, "sized_type_specifier");
@@ -176,11 +179,43 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
         }
         free(tmp_type);
       } //for
+
+      /* $sized_type_specifier $sized_type_specifier ... $field_identifier; */
       type = strdup(sp_str_c_str(&tmp_str));
+      sp_str_free(&tmp_str);
     } else {
       tmp = sp_find_direct_child(subject, "type_identifier");
       if (!ts_node_is_null(tmp)) {
+        /* $type_identifier $field_identifier; */
         type = sp_struct_value(ctx, tmp);
+      } else {
+        tmp = sp_find_direct_child(subject, "enum_specifier");
+        if (!ts_node_is_null(tmp)) {
+
+          tmp = sp_find_direct_child(tmp, "type_identifier");
+          if (!ts_node_is_null(tmp)) {
+            char *enum_type = sp_struct_value(ctx, tmp);
+
+            /* enum $type_identifier $field_identifier; */
+            result->format = "%s";
+            //TODO: sp_print_$enum_type($var->($result->variable));
+            free(enum_type);
+          }
+        } else {
+          tmp = sp_find_direct_child(subject, "struct_specifier");
+          if (!ts_node_is_null(tmp)) {
+
+            tmp = sp_find_direct_child(tmp, "type_identifier");
+            if (!ts_node_is_null(tmp)) {
+              char *struct_type = sp_struct_value(ctx, tmp);
+
+              /* struct $struct_specifier $field_identifier; */
+              result->format = "%s";
+              //TODO: sp_print_$struct_type($var->($result->variable));
+              free(struct_type);
+            }
+          }
+        }
       }
     }
   }
@@ -273,7 +308,11 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
       } else if (strcmp(type, "long double") == 0) {
         result->format = "%Lf";
       } else {
-        result->format = "TODO";
+        if (strchr(type, ' ') == NULL) {
+          result->format = "%s"; //TODO this is the case for example: type_t
+        } else {
+          result->format = "TODO";
+        }
       }
     }
   }
