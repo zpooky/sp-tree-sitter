@@ -21,13 +21,14 @@ extern const TSLanguage *
 tree_sitter_c(void);
 
 static TSNode
-sp_find_parent(TSNode subject, const char *needle)
+sp_find_parent(TSNode subject, const char *needle0, const char *needle1)
 {
   TSNode it          = subject;
   const TSNode empty = {0};
 
   while (!ts_node_is_null(it)) {
-    if (strcmp(ts_node_type(it), needle) == 0) {
+    if (strcmp(ts_node_type(it), needle0) == 0 ||
+        strcmp(ts_node_type(it), needle1) == 0) {
       return it;
     }
     it = ts_node_parent(it);
@@ -48,20 +49,6 @@ sp_find_direct_child(TSNode subject, const char *needle)
   return empty;
 }
 
-static TSNode
-sp_find_struct_specifier(TSNode subject, const struct sp_ts_file *file)
-{
-  TSNode result = {0};
-  (void)file;
-
-  result = sp_find_parent(subject, "struct_specifier");
-  if (!ts_node_is_null(result)) {
-    return result;
-  }
-  /* XXX: maybe downwards? */
-
-  return result;
-}
 static char *
 sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
 {
@@ -75,16 +62,112 @@ sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
   return strndup(&ctx->file.content[s], len);
 }
 
-static void
+struct sp_str_list;
+struct sp_str_list {
+  char *value;
+  struct sp_str_list *next;
+};
+
+static int
 sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
 {
-  /* static void sp_print_enum_$type_name(const $type_name_typedef?"":"enum" $type_name in){
-   *   switch(in){
-   *     case XXX: return "XXX";
-   *     default: return "___UNDEF";
-   *   }
-   * }
-   */
+  int res = EXIT_SUCCESS;
+  TSNode tmp;
+  sp_str buf;
+  char *type_name              = NULL;
+  bool type_name_typedef       = false;
+  struct sp_str_list dummy     = {0};
+  struct sp_str_list *enums_it = &dummy;
+
+  sp_str_init(&buf, 0);
+
+  /* fprintf(stderr, "%s\n", __func__); */
+
+  tmp = sp_find_direct_child(subject, "type_identifier");
+  if (!ts_node_is_null(tmp)) {
+    /* struct type_name { ... }; */
+    type_name = sp_struct_value(ctx, tmp);
+  } else {
+    TSNode parent = ts_node_parent(subject);
+    if (!ts_node_is_null(parent)) {
+      if (strcmp(ts_node_type(parent), "type_definition") == 0) {
+        tmp = sp_find_direct_child(parent, "type_identifier");
+        if (!ts_node_is_null(tmp)) {
+          /* typedef struct * { ... } type_name; */
+          type_name_typedef = true;
+          type_name         = sp_struct_value(ctx, tmp);
+        }
+      }
+    }
+  }
+
+  tmp = sp_find_direct_child(subject, "enumerator_list");
+  if (!ts_node_is_null(tmp)) {
+    uint32_t i;
+    for (i = 0; i < ts_node_child_count(tmp); ++i) {
+      TSNode enumerator = ts_node_child(tmp, i);
+      if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
+        if (ts_node_child_count(enumerator) > 0) {
+          struct sp_str_list *arg = NULL;
+          if ((arg = calloc(1, sizeof(*arg)))) {
+            TSNode id  = ts_node_child(enumerator, 0);
+            arg->value = sp_struct_value(ctx, id);
+            enums_it = enums_it->next = arg;
+          }
+        }
+#if 0
+        uint32_t a;
+        for (a = 0; a < ts_node_child_count(enumerator); ++a) {
+          TSNode xx = ts_node_child(enumerator, a);
+          fprintf(stderr, "a.%u\n", a);
+          fprintf(stderr, "%s\n", ts_node_type(xx));
+          fprintf(stderr, "%s\n", sp_struct_value(ctx, xx));
+        }
+#endif
+      }
+    } //for
+  }
+
+  if (!type_name) {
+    res = EXIT_FAILURE;
+    goto Lout;
+  }
+
+  sp_str_append(&buf, "static inline void sp_print_");
+  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, "(const ");
+  sp_str_append(&buf, type_name_typedef ? "" : "enum ");
+  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, " *in) {\n");
+  sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
+  sp_str_append(&buf, "  switch (*in) {\n");
+  enums_it = dummy.next;
+  while (enums_it) {
+    sp_str_append(&buf, "    case ");
+    sp_str_append(&buf, enums_it->value);
+    sp_str_append(&buf, ": return \"");
+    sp_str_append(&buf, enums_it->value);
+    sp_str_append(&buf, "\";\n");
+    enums_it = enums_it->next;
+  }
+
+  sp_str_append(&buf, "    default: return \"__UNDEF\";\n");
+  sp_str_append(&buf, "  }\n");
+  sp_str_append(&buf, "}\n");
+
+  fprintf(stdout, "%s", sp_str_c_str(&buf));
+
+Lout:
+  sp_str_free(&buf);
+  free(type_name);
+  enums_it = dummy.next;
+  while (enums_it) {
+    struct sp_str_list *next = enums_it->next;
+    free(enums_it->value);
+    free(enums_it);
+    enums_it = next;
+  }
+  return res;
 }
 
 struct arg_list;
@@ -116,7 +199,7 @@ __rec_search(struct sp_ts_Context *ctx, TSNode subject, const char *needle)
 }
 
 static struct arg_list *
-__sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
+__sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
   TSNode tmp;
@@ -326,7 +409,7 @@ __sp_to_str_field(struct sp_ts_Context *ctx, TSNode subject)
   return result;
 }
 
-static void
+static int
 sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 {
   char *type_name           = NULL;
@@ -345,13 +428,13 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   /*           ts_node_type(subject)); */
   /*   fprintf(stderr, "children: %u\n", ts_node_child_count(subject)); */
 
+  fprintf(stderr, "%s\n", __func__);
 #if 0
   char *p = ts_node_string(subject);
   fprintf(stdout, "%s\n", p);
   free(p);
 #endif
 
-  /* try to find a name */
   tmp = sp_find_direct_child(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
     /* struct type_name { ... }; */
@@ -386,7 +469,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
          * fprintf(stderr, "children: %u\n", ts_node_child_count(field));
          * fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s], ts_node_type(field));
          */
-        if ((arg = __sp_to_str_field(ctx, field))) {
+        if ((arg = __sp_to_str_struct_field(ctx, field))) {
           args_it = args_it->next = arg;
         }
 
@@ -427,12 +510,14 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     args_it = args_it->next;
   }
   free(type_name);
+
+  return EXIT_SUCCESS;
 }
 
 int
 main(int argc, const char *argv[])
 {
-  int res                  = EXIT_SUCCESS;
+  int res                  = EXIT_FAILURE;
   TSPoint pos              = {.row = 0, .column = 0};
   struct sp_ts_Context ctx = {0};
 
@@ -461,7 +546,6 @@ main(int argc, const char *argv[])
                                         (uint32_t)ctx.file.length);
       if (!ctx.tree) {
         fprintf(stderr, "failed to parse\n");
-        res = EXIT_FAILURE;
         goto Lerr;
       }
 
@@ -476,33 +560,40 @@ main(int argc, const char *argv[])
           fprintf(stdout, "%s\n", p);
           free(p);
           TSNode tmp = sp_find_direct_child(root, "declaration");
-          for (i = 0; i < ts_node_child_count(tmp); ++i) {
-            uint32_t s   = ts_node_start_byte(ts_node_child(tmp, i));
-            uint32_t e   = ts_node_end_byte(ts_node_child(tmp, i));
-            uint32_t len = e - s;
-            fprintf(stderr, ".%u\n", i);
-            fprintf(stderr, "s: %u\n", s);
-            fprintf(stderr, "e: %u\n", e);
-            fprintf(stderr, "len: %u\n", len);
-            fprintf(stderr, "%.*s: %s\n", (int)len, &ctx.file.content[s],
-                    ts_node_type(ts_node_child(tmp, i)));
+          if (!ts_node_is_null(tmp)) {
+            for (i = 0; i < ts_node_child_count(tmp); ++i) {
+              uint32_t s   = ts_node_start_byte(ts_node_child(tmp, i));
+              uint32_t e   = ts_node_end_byte(ts_node_child(tmp, i));
+              uint32_t len = e - s;
+              fprintf(stderr, ".%u\n", i);
+              /* fprintf(stderr, "s: %u\n", s); */
+              /* fprintf(stderr, "e: %u\n", e); */
+              /* fprintf(stderr, "len: %u\n", len); */
+              fprintf(stderr, "%.*s: %s\n", (int)len, &ctx.file.content[s],
+                      ts_node_type(ts_node_child(tmp, i)));
+            }
           }
         }
 #endif
 
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
-          TSNode found = sp_find_struct_specifier(highligted, &ctx.file);
+          const char *struct_spec = "struct_specifier";
+          const char *enum_spec   = "enum_specifier";
+          TSNode found = sp_find_parent(highligted, struct_spec, enum_spec);
+
           if (!ts_node_is_null(found)) {
-            sp_print_struct(&ctx, found);
+            if (strcmp(ts_node_type(found), struct_spec) == 0) {
+              res = sp_print_struct(&ctx, found);
+            } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+              res = sp_print_enum(&ctx, found);
+            }
           }
         } else {
           fprintf(stderr, "out of range %u,%u\n", pos.row, pos.column);
-          res = EXIT_FAILURE;
         }
       } else {
         fprintf(stderr, "Tree is empty \n");
-        res = EXIT_FAILURE;
       }
       ts_tree_delete(ctx.tree);
     }
@@ -510,8 +601,6 @@ main(int argc, const char *argv[])
   Lerr:
     ts_parser_delete(parser);
     /* munmap(file, flength); */
-  } else {
-    res = EXIT_FAILURE;
   }
 
   return res;
