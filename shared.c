@@ -25,9 +25,8 @@ mmap_file(const char *file, struct sp_ts_file *result)
    * TODO struct asd *s; -> sp_print_asd(in->s);
    * TODO asd_t s; -> sp_print_asd(&in->s);
    * TODO asd_t *s; -> sp_print_asd(in->s);
-   * TODO const char* s; "%s",in->s
    * TODO char s[256]; "%.s",256,in->s
-   * TODO xxx** s; "%p",in->s
+   * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
    */
 
   result->content = ""

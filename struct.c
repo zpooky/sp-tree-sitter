@@ -178,7 +178,11 @@ struct arg_list {
 };
 
 static TSNode
-__rec_search(struct sp_ts_Context *ctx, TSNode subject, const char *needle)
+__rec_search(struct sp_ts_Context *ctx,
+             TSNode subject,
+             const char *needle,
+             uint32_t curlevel,
+             uint32_t *level)
 {
   TSNode empty = {0};
   uint32_t i;
@@ -188,9 +192,10 @@ __rec_search(struct sp_ts_Context *ctx, TSNode subject, const char *needle)
 
     if (strcmp(ts_node_type(child), needle) == 0) {
       assert(ts_node_child_count(child) == 0);
+      *level = curlevel;
       return child;
     }
-    tmp = __rec_search(ctx, child, needle);
+    tmp = __rec_search(ctx, child, needle, curlevel + 1, level);
     if (!ts_node_is_null(tmp)) {
       return tmp;
     }
@@ -216,8 +221,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   } else {
     tmp = sp_find_direct_child(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
-      ++pointer; //TODO
-      tmp = __rec_search(ctx, tmp, "field_identifier");
+      tmp = __rec_search(ctx, tmp, "field_identifier", 1, &pointer);
       if (!ts_node_is_null(tmp)) {
         if (result || (result = calloc(1, sizeof(*result)))) {
           result->variable = sp_struct_value(ctx, tmp);
@@ -308,15 +312,21 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   //TODO strdup
   if (type) {
     if (result || (result = calloc(1, sizeof(*result)))) {
-      if (strcmp(type, "gboolean") == 0 || //
-          strcmp(type, "bool") == 0 || //
-          strcmp(type, "boolean") == 0) {
+      if (pointer > 1) {
+        result->format = "%p";
+      } else if (strcmp(type, "gboolean") == 0 || //
+                 strcmp(type, "bool") == 0 || //
+                 strcmp(type, "boolean") == 0) {
         result->format = "%s"; //TODO
       } else if (strcmp(type, "char") == 0 || //
                  strcmp(type, "gchar") == 0 || //
                  strcmp(type, "gint8") == 0 || //
                  strcmp(type, "int8_t") == 0) {
-        result->format = "'%c'";
+        if (pointer) {
+          result->format = "%s";
+        } else {
+          result->format = "'%c'";
+        }
       } else if (strcmp(type, "uchar") == 0 || //
                  strcmp(type, "guchar") == 0 || //
                  strcmp(type, "guint8") == 0 || //
