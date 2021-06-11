@@ -175,6 +175,7 @@ struct arg_list {
   char *format;
   char *variable;
   bool complete;
+  bool complex_printf;
   struct arg_list *next;
 };
 
@@ -212,6 +213,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   TSNode tmp;
   char *type = NULL;
   bool array = false;
+
+  printf("%s\n", __func__);
 
   result = calloc(1, sizeof(*result));
 
@@ -298,7 +301,11 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
     } else {
       tmp = sp_find_direct_child(subject, "type_identifier");
       if (!ts_node_is_null(tmp)) {
-        /* $type_identifier $field_identifier; */
+        /* $type_identifier $field_identifier;
+         * Example:
+         *  type_t type0;
+         *  gint int0;
+         */
         type = sp_struct_value(ctx, tmp);
       } else {
         tmp = sp_find_direct_child(subject, "enum_specifier");
@@ -306,12 +313,29 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 
           tmp = sp_find_direct_child(tmp, "type_identifier");
           if (!ts_node_is_null(tmp)) {
-            char *enum_type = sp_struct_value(ctx, tmp);
-
-            /* enum $type_identifier $field_identifier; */
             result->format = "%s";
-            //TODO: sp_print_$enum_type($var->($result->variable));
-            free(enum_type);
+            if (pointer > 1) {
+            } else {
+              char *enum_type    = sp_struct_value(ctx, tmp);
+              const char *prefix = "&";
+              sp_str buf_tmp;
+              sp_str_init(&buf_tmp, 0);
+
+              /* Example: enum type_t */
+              if (pointer) {
+                prefix = "";
+              }
+              sp_str_appends(&buf_tmp, "sp_print_", enum_type, "(", prefix,
+                             "%s->", result->variable, ")", NULL);
+              free(result->variable);
+              result->variable       = strdup(sp_str_c_str(&buf_tmp));
+              result->complex_printf = true;
+
+              /* enum $type_identifier $field_identifier; */
+              //TODO: sp_print_$enum_type($var->($result->variable));
+              sp_str_free(&buf_tmp);
+              free(enum_type);
+            }
           }
         } else {
           tmp = sp_find_direct_child(subject, "struct_specifier");
@@ -319,12 +343,29 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 
             tmp = sp_find_direct_child(tmp, "type_identifier");
             if (!ts_node_is_null(tmp)) {
-              char *struct_type = sp_struct_value(ctx, tmp);
-
-              /* struct $struct_specifier $field_identifier; */
               result->format = "%s";
-              //TODO: sp_print_$struct_type($var->($result->variable));
-              free(struct_type);
+              if (pointer > 1) {
+              } else {
+                char *struct_type  = sp_struct_value(ctx, tmp);
+                const char *prefix = "&";
+                sp_str buf_tmp;
+                sp_str_init(&buf_tmp, 0);
+
+                /* Example: struct type_t */
+                if (pointer) {
+                  prefix = "";
+                }
+                sp_str_appends(&buf_tmp, "sp_print_", struct_type, "(", prefix,
+                               "%s->", result->variable, ")", NULL);
+                free(result->variable);
+                result->variable       = strdup(sp_str_c_str(&buf_tmp));
+                result->complex_printf = true;
+
+                /* struct $struct_specifier $field_identifier; */
+                //TODO: sp_print_$struct_type($var->($result->variable));
+                sp_str_free(&buf_tmp);
+                free(struct_type);
+              }
             }
           }
         }
@@ -428,8 +469,24 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       result->format = "%Lf";
     } else {
       if (strchr(type, ' ') == NULL) {
-        result->format = "%s"; //TODO this is the case for example: type_t
+        const char *prefix = "&";
+        sp_str buf_tmp;
+        sp_str_init(&buf_tmp, 0);
+
+        /* Example: type_t */
+        result->format = "%s";
+        if (pointer) {
+          prefix = "";
+        }
+        sp_str_appends(&buf_tmp, "sp_print_", type, "(", prefix, "%s->",
+                       result->variable, ")", NULL);
+        free(result->variable);
+        result->variable       = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
+
+        sp_str_free(&buf_tmp);
       } else {
+        assert(false);
         result->format = "TODO";
       }
     }
@@ -459,17 +516,21 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 
   sp_str_init(&buf, 0);
 
-  /*   uint32_t s   = ts_node_start_byte(subject); */
-  /*   uint32_t e   = ts_node_end_byte(subject); */
-  /*   uint32_t len = e - s; */
-  /*   fprintf(stderr, "s: %u\n", s); */
-  /*   fprintf(stderr, "e: %u\n", e); */
-  /*   fprintf(stderr, "len: %u\n", len); */
-  /*   fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s], */
-  /*           ts_node_type(subject)); */
-  /*   fprintf(stderr, "children: %u\n", ts_node_child_count(subject)); */
-
   fprintf(stderr, "%s\n", __func__);
+#if 1
+  printf("--\n");
+  for (i = 0; i < ts_node_child_count(subject); ++i) {
+    TSNode child = ts_node_child(subject, i);
+    uint32_t s   = ts_node_start_byte(child);
+    uint32_t e   = ts_node_end_byte(child);
+    uint32_t len = e - s;
+    fprintf(stderr, ".%u\n", i);
+    fprintf(stderr, "children: %u\n", ts_node_child_count(child));
+    fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
+            ts_node_type(child));
+  }
+  printf("--\n");
+#endif
 #if 0
   char *p = ts_node_string(subject);
   fprintf(stdout, "%s\n", p);
@@ -582,8 +643,15 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   field_it = field_dummy.next;
   while (field_it) {
     if (field_it->complete) {
-      sp_str_append(&buf, ", in->");
-      sp_str_append(&buf, field_it->variable);
+      sp_str_append(&buf, ", ");
+      if (field_it->complex_printf) {
+        char buf_tmp[256] = {'\0'};
+        snprintf(buf_tmp, sizeof(buf_tmp), field_it->variable, "in");
+        sp_str_append(&buf, buf_tmp);
+      } else {
+        sp_str_append(&buf, "in->");
+        sp_str_append(&buf, field_it->variable);
+      }
     }
     field_it = field_it->next;
   } //while

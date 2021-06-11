@@ -64,19 +64,19 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     /* "  const int*const** ppint0;\n" */
                     /* "  float float0;\n" */
 /*                     "  double double0;\n" */
-                    "  struct type type0;\n"
-/*                     "  type_t type1;\n" */
-/*                     "  type_t *type2;\n" */
+                    /* "  struct type type0;\n" */
+                    /* "  type_t type1;\n" */
+                    /* "  type_t *type2;\n" */
 /*                     "  struct {\n" */
 /*                     "    int int0;\n" */
 /*                     "  } anon_struct0;\n" */
 /*                     "  enum { ENUM_1, ENUM_2 } anon_enum0;\n" */
-/*                     "  enum enum_type enum0;\n" */
-/*                     "  enum_t enum1;\n" */
+                    /* "  enum enum_type enum0;\n" */
+                    /* "  enum_t enum1;\n" */
 /*                     "  union { int i1; float f2; } anon_union0;\n" */
 /*                     "  union union_type union0;\n" */
 /*                     "  union_t union1;\n" */
-/*                     "  size_t sz0;\n" */
+                    /* "  size_t sz0;\n" */
 /*                     "  ssize_t ssz0;\n" */
                     "} instance;\n"
                     "\0";

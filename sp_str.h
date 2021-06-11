@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+/* TODO sp_str_append_printf();
+ * TODO sp_str_appends(, const char*..., NULL);
+ */
+
 //==============================
 typedef struct sp_str {
   union {
@@ -68,6 +72,9 @@ sp_str_append_str(sp_str *, const sp_str *);
 
 int
 sp_str_append_char(sp_str *, char);
+
+int
+sp_str_appends(sp_str *, ...);
 
 //==============================
 int
