@@ -49,32 +49,35 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     "  double double0;\n"
                     "} type_t;\n"
                     "struct sut {\n"
-                    "  long long ll0;\n"
-                    "  unsigned long long ull1;\n"
-                    "  long double ld0;\n"
-                    "  int int0;\n"
-                    "  gint int1;\n"
-                    "  const int int2;\n"
-                    "  volatile int int3;\n"
-                    "  char char0;\n"
-                    "  gchar char1;\n"
+                    /* "char buf[256];\n" */
                     "  const char* string0;\n"
-                    "  const int*const** ppint0;\n"
-                    "  float float0;\n"
-                    "  double double0;\n"
+                    /* "  char* string1;\n" */
+                    /* "  const long long ll0;\n" */
+                    /* "  unsigned long long ull1;\n" */
+                    /* "  long double ld0;\n" */
+                    /* "  int int0;\n" */
+                    /* "  gint int1;\n" */
+                    /* "  const int int2;\n" */
+                    /* "  volatile int int3;\n" */
+                    /* "  char char0;\n" */
+/*                     "  gchar char1;\n" */
+                    /* "  const int*const** ppint0;\n" */
+                    /* "  float float0;\n" */
+/*                     "  double double0;\n" */
                     "  struct type type0;\n"
-                    "  type_t type1;\n"
-                    "  struct {\n"
-                    "    int int0;\n"
-                    "  } anon_struct0;\n"
-                    "  enum { ENUM_1, ENUM_2 } anon_enum0;\n"
-                    "  enum enum_type enum0;\n"
-                    "  enum_t enum1;\n"
-                    "  union { int i1; float f2; } anon_union0;\n"
-                    "  union union_type union0;\n"
-                    "  union_t union1;\n"
-                    "  size_t sz0;\n"
-                    "  ssize_t ssz0;\n"
+/*                     "  type_t type1;\n" */
+/*                     "  type_t *type2;\n" */
+/*                     "  struct {\n" */
+/*                     "    int int0;\n" */
+/*                     "  } anon_struct0;\n" */
+/*                     "  enum { ENUM_1, ENUM_2 } anon_enum0;\n" */
+/*                     "  enum enum_type enum0;\n" */
+/*                     "  enum_t enum1;\n" */
+/*                     "  union { int i1; float f2; } anon_union0;\n" */
+/*                     "  union union_type union0;\n" */
+/*                     "  union_t union1;\n" */
+/*                     "  size_t sz0;\n" */
+/*                     "  ssize_t ssz0;\n" */
                     "} instance;\n"
                     "\0";
   result->length = strlen(result->content);

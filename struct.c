@@ -133,7 +133,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     goto Lout;
   }
 
-  sp_str_append(&buf, "static inline void sp_print_");
+  sp_str_append(&buf, "static inline const char* sp_print_");
   sp_str_append(&buf, type_name);
   sp_str_append(&buf, "(const ");
   sp_str_append(&buf, type_name_typedef ? "" : "enum ");
@@ -174,6 +174,7 @@ struct arg_list;
 struct arg_list {
   char *format;
   char *variable;
+  bool complete;
   struct arg_list *next;
 };
 
@@ -207,25 +208,24 @@ static struct arg_list *
 __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
+  uint32_t pointer        = 0;
   TSNode tmp;
-  uint32_t pointer = 0;
-  char *type       = NULL;
+  char *type = NULL;
+  bool array = false;
+
+  result = calloc(1, sizeof(*result));
 
   /* TODO result->format, result->variable strdup() */
 
   tmp = sp_find_direct_child(subject, "field_identifier");
   if (!ts_node_is_null(tmp)) {
-    if (result || (result = calloc(1, sizeof(*result)))) {
-      result->variable = sp_struct_value(ctx, tmp);
-    }
+    result->variable = sp_struct_value(ctx, tmp);
   } else {
     tmp = sp_find_direct_child(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
       tmp = __rec_search(ctx, tmp, "field_identifier", 1, &pointer);
       if (!ts_node_is_null(tmp)) {
-        if (result || (result = calloc(1, sizeof(*result)))) {
-          result->variable = sp_struct_value(ctx, tmp);
-        }
+        result->variable = sp_struct_value(ctx, tmp);
       }
 
 #if 0
@@ -241,6 +241,31 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 ts_node_type(child));
       }
 #endif
+    } else {
+      tmp = sp_find_direct_child(subject, "array_declarator");
+      if (!ts_node_is_null(tmp)) {
+#if 1
+        printf("--\n");
+        uint32_t i;
+        for (i = 0; i < ts_node_child_count(tmp); ++i) {
+          TSNode child = ts_node_child(tmp, i);
+          uint32_t s   = ts_node_start_byte(child);
+          uint32_t e   = ts_node_end_byte(child);
+          uint32_t len = e - s;
+          fprintf(stderr, ".%u\n", i);
+          fprintf(stderr, "children: %u\n", ts_node_child_count(child));
+          fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
+                  ts_node_type(child));
+        }
+        printf("--\n");
+#endif
+        TSNode field_id = sp_find_direct_child(subject, "field_identifier");
+        if (!ts_node_is_null(field_id)) {
+          array            = true;
+          result->variable = sp_struct_value(ctx, field_id);
+          /* TODO: '[' XXX ']' */
+        }
+      }
     }
   }
 
@@ -311,108 +336,109 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   /* https://en.cppreference.com/w/cpp/types/integer */
   //TODO strdup
   if (type) {
-    if (result || (result = calloc(1, sizeof(*result)))) {
-      if (pointer > 1) {
-        result->format = "%p";
-      } else if (strcmp(type, "gboolean") == 0 || //
-                 strcmp(type, "bool") == 0 || //
-                 strcmp(type, "boolean") == 0) {
-        result->format = "%s"; //TODO
-      } else if (strcmp(type, "char") == 0 || //
-                 strcmp(type, "gchar") == 0 || //
-                 strcmp(type, "gint8") == 0 || //
-                 strcmp(type, "int8_t") == 0) {
-        if (pointer) {
-          result->format = "%s";
-        } else {
-          result->format = "'%c'";
-        }
-      } else if (strcmp(type, "uchar") == 0 || //
-                 strcmp(type, "guchar") == 0 || //
-                 strcmp(type, "guint8") == 0 || //
-                 strcmp(type, "uint8_t") == 0) {
-        result->format = "'%d'";
-      } else if (strcmp(type, "short") == 0 || //
-                 strcmp(type, "gshort") == 0 || //
-                 strcmp(type, "gint16") == 0 || //
-                 strcmp(type, "int16_t") == 0) {
-        result->format = "%d";
-      } else if (strcmp(type, "unsigned short") == 0 || //
-                 strcmp(type, "gushort") == 0 || //
-                 strcmp(type, "guint16") == 0 || //
-                 strcmp(type, "uint16_t") == 0) {
-        result->format = "%u";
-      } else if (strcmp(type, "int") == 0 || //
-                 strcmp(type, "signed int") == 0 || //
-                 strcmp(type, "gint") == 0 || //
-                 strcmp(type, "gint32") == 0 || //
-                 strcmp(type, "int32_t") == 0) {
-        result->format = "%d";
-      } else if (strcmp(type, "unsigned") == 0 || //
-                 strcmp(type, "unsigned int") == 0 || //
-                 strcmp(type, "guint") == 0 || //
-                 strcmp(type, "guint32") == 0 || //
-                 strcmp(type, "uint32_t") == 0) {
-        result->format = "%u";
-      } else if (strcmp(type, "long") == 0 || //
-                 strcmp(type, "long int") == 0) {
-        result->format = "%ld";
-      } else if (strcmp(type, "unsigned long int") == 0 || //
-                 strcmp(type, "long unsigned int") == 0 || //
-                 strcmp(type, "unsigned long") == 0) {
-        result->format = "%lu";
-      } else if (strcmp(type, "long long") == 0 || //
-                 strcmp(type, "long long int") == 0) {
-        result->format = "%lld";
-      } else if (strcmp(type, "unsigned long long") == 0 || //
-                 strcmp(type, "unsigned long long int") == 0) {
-        result->format = "%llu";
-      } else if (strcmp(type, "off_t") == 0) {
-        result->format = "%jd";
-      } else if (strcmp(type, "goffset") == 0) {
-        result->format = "\"%\"G_GOFFSET_FORMAT";
-      } else if (strcmp(type, "size_t") == 0) {
-        result->format = "%zu";
-      } else if (strcmp(type, "gsize") == 0) {
-        result->format = "\"%\"G_GSIZE_FORMAT";
-      } else if (strcmp(type, "ssize_t") == 0) {
-        result->format = "%zd";
-      } else if (strcmp(type, "gssize") == 0) {
-        result->format = "\"%\"G_GSSIZE_FORMAT";
-      } else if (strcmp(type, "int64_t") == 0) {
-        result->format = "\"%\"PRId64";
-      } else if (strcmp(type, "uint64_t") == 0) {
-        result->format = "\"%\"PRIu64";
-      } else if (strcmp(type, "guint64") == 0) {
-        result->format = "\"%\"G_GUINT64_FORMAT";
-      } else if (strcmp(type, "uintptr_t") == 0) {
-        result->format = "\"%\"PRIuPTR";
-      } else if (strcmp(type, "guintptr") == 0) {
-        result->format = "\"%\"G_GUINTPTR_FORMAT";
-      } else if (strcmp(type, "iintptr_t") == 0) {
-        result->format = "\"%\"PRIiPTR";
-      } else if (strcmp(type, "gintptr") == 0) {
-        result->format = "\"%\"G_GINTPTR_FORMAT";
-      } else if (strcmp(type, "float") == 0 || //
-                 strcmp(type, "gfloat") == 0 || //
-                 strcmp(type, "double") == 0 || //
-                 strcmp(type, "gdouble") == 0) {
-        result->format = "%f";
-      } else if (strcmp(type, "long double") == 0) {
-        result->format = "%Lf";
+    if (pointer > 1) {
+      result->format = "%p";
+    } else if (strcmp(type, "gboolean") == 0 || //
+               strcmp(type, "bool") == 0 || //
+               strcmp(type, "boolean") == 0) {
+      result->format = "%s"; //TODO
+    } else if (strcmp(type, "char") == 0 || //
+               strcmp(type, "gchar") == 0 || //
+               strcmp(type, "gint8") == 0 || //
+               strcmp(type, "int8_t") == 0) {
+      if (array) {
+        result->format = "%.s";
+      } else if (pointer) {
+        result->format = "%s";
       } else {
-        if (strchr(type, ' ') == NULL) {
-          result->format = "%s"; //TODO this is the case for example: type_t
-        } else {
-          result->format = "TODO";
-        }
+        result->format = "'%c'";
+      }
+    } else if (strcmp(type, "uchar") == 0 || //
+               strcmp(type, "guchar") == 0 || //
+               strcmp(type, "guint8") == 0 || //
+               strcmp(type, "uint8_t") == 0) {
+      result->format = "'%d'";
+    } else if (strcmp(type, "short") == 0 || //
+               strcmp(type, "gshort") == 0 || //
+               strcmp(type, "gint16") == 0 || //
+               strcmp(type, "int16_t") == 0) {
+      result->format = "%d";
+    } else if (strcmp(type, "unsigned short") == 0 || //
+               strcmp(type, "gushort") == 0 || //
+               strcmp(type, "guint16") == 0 || //
+               strcmp(type, "uint16_t") == 0) {
+      result->format = "%u";
+    } else if (strcmp(type, "int") == 0 || //
+               strcmp(type, "signed int") == 0 || //
+               strcmp(type, "gint") == 0 || //
+               strcmp(type, "gint32") == 0 || //
+               strcmp(type, "int32_t") == 0) {
+      result->format = "%d";
+    } else if (strcmp(type, "unsigned") == 0 || //
+               strcmp(type, "unsigned int") == 0 || //
+               strcmp(type, "guint") == 0 || //
+               strcmp(type, "guint32") == 0 || //
+               strcmp(type, "uint32_t") == 0) {
+      result->format = "%u";
+    } else if (strcmp(type, "long") == 0 || //
+               strcmp(type, "long int") == 0) {
+      result->format = "%ld";
+    } else if (strcmp(type, "unsigned long int") == 0 || //
+               strcmp(type, "long unsigned int") == 0 || //
+               strcmp(type, "unsigned long") == 0) {
+      result->format = "%lu";
+    } else if (strcmp(type, "long long") == 0 || //
+               strcmp(type, "long long int") == 0) {
+      result->format = "%lld";
+    } else if (strcmp(type, "unsigned long long") == 0 || //
+               strcmp(type, "unsigned long long int") == 0) {
+      result->format = "%llu";
+    } else if (strcmp(type, "off_t") == 0) {
+      result->format = "%jd";
+    } else if (strcmp(type, "goffset") == 0) {
+      result->format = "\"%\"G_GOFFSET_FORMAT";
+    } else if (strcmp(type, "size_t") == 0) {
+      result->format = "%zu";
+    } else if (strcmp(type, "gsize") == 0) {
+      result->format = "\"%\"G_GSIZE_FORMAT";
+    } else if (strcmp(type, "ssize_t") == 0) {
+      result->format = "%zd";
+    } else if (strcmp(type, "gssize") == 0) {
+      result->format = "\"%\"G_GSSIZE_FORMAT";
+    } else if (strcmp(type, "int64_t") == 0) {
+      result->format = "\"%\"PRId64";
+    } else if (strcmp(type, "uint64_t") == 0) {
+      result->format = "\"%\"PRIu64";
+    } else if (strcmp(type, "guint64") == 0) {
+      result->format = "\"%\"G_GUINT64_FORMAT";
+    } else if (strcmp(type, "uintptr_t") == 0) {
+      result->format = "\"%\"PRIuPTR";
+    } else if (strcmp(type, "guintptr") == 0) {
+      result->format = "\"%\"G_GUINTPTR_FORMAT";
+    } else if (strcmp(type, "iintptr_t") == 0) {
+      result->format = "\"%\"PRIiPTR";
+    } else if (strcmp(type, "gintptr") == 0) {
+      result->format = "\"%\"G_GINTPTR_FORMAT";
+    } else if (strcmp(type, "float") == 0 || //
+               strcmp(type, "gfloat") == 0 || //
+               strcmp(type, "double") == 0 || //
+               strcmp(type, "gdouble") == 0) {
+      result->format = "%f";
+    } else if (strcmp(type, "long double") == 0) {
+      result->format = "%Lf";
+    } else {
+      if (strchr(type, ' ') == NULL) {
+        result->format = "%s"; //TODO this is the case for example: type_t
+      } else {
+        result->format = "TODO";
       }
     }
   }
 
-  if (result) {
-    result->format   = result->format ? result->format : "TODO";
-    result->variable = result->variable ? result->variable : "TODO";
+  if (result && result->format && result->variable) {
+    result->complete = true;
+    /*     result->format   = result->format ? result->format : "TODO"; */
+    /*     result->variable = result->variable ? result->variable : "TODO"; */
   }
 
   free(type);
@@ -422,12 +448,17 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 static int
 sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 {
-  char *type_name           = NULL;
-  bool type_name_typedef    = false;
-  struct arg_list arg_dummy = {0};
-  struct arg_list *args_it  = &arg_dummy;
+  char *type_name             = NULL;
+  bool type_name_typedef      = false;
+  size_t complete             = 0;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
   uint32_t i;
   TSNode tmp;
+  sp_str buf;
+
+  sp_str_init(&buf, 0);
+
   /*   uint32_t s   = ts_node_start_byte(subject); */
   /*   uint32_t e   = ts_node_end_byte(subject); */
   /*   uint32_t len = e - s; */
@@ -480,7 +511,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
          * fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s], ts_node_type(field));
          */
         if ((arg = __sp_to_str_struct_field(ctx, field))) {
-          args_it = args_it->next = arg;
+          field_it = field_it->next = arg;
         }
 
 #if 1
@@ -514,13 +545,60 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   }
 #endif
   printf("type_name: %s\n", type_name ? type_name : "NULL");
-  args_it = arg_dummy.next;
-  while (args_it) {
-    printf("%s, %s\n", args_it->format, args_it->variable);
-    args_it = args_it->next;
+  field_it = field_dummy.next;
+  while (field_it) {
+    printf("%s, %s\n", field_it->format, field_it->variable);
+    field_it = field_it->next;
   }
-  free(type_name);
 
+  sp_str_append(&buf, "static inline const char* sp_print_");
+  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, "(const ");
+  sp_str_append(&buf, type_name_typedef ? "" : "struct ");
+  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, " *in) {\n");
+  sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
+  sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
+  field_it = field_dummy.next;
+  while (field_it) {
+    if (field_it->complete) {
+      if (complete == 0) {
+        sp_str_append(&buf, "  snprintf(buf, sizeof(buf), \"");
+      } else {
+        sp_str_append(&buf, ", ");
+      }
+      sp_str_append(&buf, field_it->format);
+      ++complete;
+    } else {
+      fprintf(stdout, "Unknown: %s\n",
+              field_it->variable ? field_it->variable : "NULL");
+    }
+    field_it = field_it->next;
+  } //while
+  if (complete) {
+    sp_str_append(&buf, "\"");
+  }
+
+  field_it = field_dummy.next;
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_append(&buf, ", in->");
+      sp_str_append(&buf, field_it->variable);
+    }
+    field_it = field_it->next;
+  } //while
+  if (complete) {
+    sp_str_append(&buf, ");\n");
+  } else {
+    sp_str_append(&buf, "  buf[0] = '\\0';\n");
+  }
+  sp_str_append(&buf, "  return buf;\n");
+  sp_str_append(&buf, "}\n");
+
+  fprintf(stdout, "%s", sp_str_c_str(&buf));
+
+  free(type_name);
+  sp_str_free(&buf);
   return EXIT_SUCCESS;
 }
 
