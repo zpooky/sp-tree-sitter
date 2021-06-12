@@ -664,7 +664,7 @@ static uint32_t
 sp_find_last_line(TSNode subject)
 {
   TSPoint p = ts_node_end_point(subject);
-  return p.row + 1 + 1;
+  return p.row + 1;
 }
 
 int

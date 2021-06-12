@@ -25,7 +25,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
    * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
    * TODO union { char *buf; char sbuf[16]; }; ??
    */
-
+#if 0
   result->content = ""
                     "typedef enum enum_type {ENUM_X, ENUM_Y } enum_t;\n"
                     "typedef union union_type { int i1; float f2;} union_t;\n"
@@ -81,57 +81,42 @@ mmap_file(const char *file, struct sp_ts_file *result)
   result->length = strlen(result->content);
   result->fd     = -1;
   return 0;
-  if ((result->fd = open(file, O_NONBLOCK | O_RDONLY | O_CLOEXEC) < 0)) {
+#endif
+  if ((result->fd = open(file, O_RDONLY)) < 0) {
     fprintf(stderr, "Unable to open '%s': %m\n", file);
     return -1;
   }
 
   if (fstat(result->fd, &st) < 0) {
     fprintf(stderr, "fstat failed on '%s': %m\n", file);
-    return -1;
+    goto Lerr;
   }
 
-  if (S_ISBLK(st.st_mode)) {
-    printf("S_ISBLK\n");
-  }
-  if (S_ISCHR(st.st_mode)) {
-    printf("S_ISCHR\n");
-  }
-  if (S_ISDIR(st.st_mode)) {
-    printf("S_ISDIR\n");
-  }
-  if (S_ISFIFO(st.st_mode)) {
-    printf("S_ISFIFO\n");
-  }
-  if (S_ISLNK(st.st_mode)) {
-    printf("S_ISLNK\n");
-  }
-  if (S_ISREG(st.st_mode)) {
-    printf("S_ISREG\n");
-  }
-  if (S_ISSOCK(st.st_mode)) {
-    printf("S_ISSOCK\n");
-  }
   if (!S_ISREG(st.st_mode)) {
     fprintf(stderr, "File: '%s' is not a regular file\n", file);
-    return -1;
+    goto Lerr;
   }
 
   if (st.st_size == 0) {
     fprintf(stderr, "File: '%s' is empty\n", file);
-    return -1;
+    goto Lerr;
   }
 
-  result->length = (size_t)st.st_size;
-  printf("bytes:%jd\n", st.st_size);
-  result->content =
-    mmap(NULL, result->length, PROT_READ, MAP_PRIVATE, result->fd, 0);
+  result->length  = (size_t)st.st_size;
+  result->content = mmap(NULL, result->length, PROT_READ,
+                         MAP_PRIVATE | MAP_FILE, result->fd, 0);
   if (result->content == MAP_FAILED) {
     fprintf(stderr, "mmap failed on '%s': %m\n", file);
-    return -1;
+    goto Lerr;
   }
 
   return 0;
+Lerr:
+  if (result->fd >= 0) {
+    close(result->fd);
+  }
+  result->fd = -1;
+  return -1;
 }
 
 bool
