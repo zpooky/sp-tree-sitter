@@ -23,17 +23,17 @@ tree_sitter_c(void);
 static TSNode
 sp_find_parent(TSNode subject, const char *needle0, const char *needle1)
 {
-  TSNode it          = subject;
-  const TSNode empty = {0};
+  TSNode it     = subject;
+  TSNode result = {0};
 
   while (!ts_node_is_null(it)) {
     if (strcmp(ts_node_type(it), needle0) == 0 ||
         strcmp(ts_node_type(it), needle1) == 0) {
-      return it;
+      result = it;
     }
     it = ts_node_parent(it);
   }
-  return empty;
+  return result;
 }
 static TSNode
 sp_find_direct_child(TSNode subject, const char *needle)

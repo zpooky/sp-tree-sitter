@@ -12,7 +12,7 @@ struct sp_ts_file {
 };
 
 int
-mmap_file(const char *file,struct sp_ts_file *result);
+mmap_file(const char *file, struct sp_ts_file *result);
 
 bool
 sp_parse_uint32_t(const char *in, uint32_t *out);
