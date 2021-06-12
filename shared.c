@@ -19,9 +19,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
   struct stat st = {0};
   memset(&st, 0, sizeof(st));
 
-  /*
-   * TODO everything should be concattenated to a a single string. !Not multiple prints!!
-   * TODO char s[256]; "%.s",256,in->s
+  /* TODO char s[256]; "%.s",256,in->s
    * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
    * TODO int* s -> "%d", in->s ? *in->s : 1337;
    * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
@@ -50,7 +48,8 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     /* "char buf[256];\n" */
                     /* "  const char* string0;\n" */
                     /* "  char* string1;\n" */
-                    /* "  const long long ll0;\n" */
+                    "  bool bool0;\n"
+                    /* "  const long long *ll0;\n" */
                     /* "  unsigned long long ull1;\n" */
                     /* "  long double ld0;\n" */
                     /* "  int int0;\n" */
@@ -65,9 +64,9 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     /* "  struct type type0;\n" */
                     /* "  type_t type1;\n" */
                     /* "  type_t *type2;\n" */
-/*                     "  struct {\n" */
-/*                     "    int int0;\n" */
-/*                     "  } anon_struct0;\n" */
+                    "  struct {\n"
+                    "    int int0;\n"
+                    "  } anon_struct0;\n"
 /*                     "  enum { ENUM_1, ENUM_2 } anon_enum0;\n" */
                     /* "  enum enum_type enum0;\n" */
                     /* "  enum_t enum1;\n" */

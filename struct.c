@@ -381,7 +381,21 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
     } else if (strcmp(type, "gboolean") == 0 || //
                strcmp(type, "bool") == 0 || //
                strcmp(type, "boolean") == 0) {
-      result->format = "%s"; //TODO
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+
+      if (pointer) {
+        sp_str_appends(&buf_tmp, "!%s->", result->variable, " ? \"NULL\" : *%s->",
+                       result->variable, NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "%s->", result->variable, NULL);
+      }
+      sp_str_appends(&buf_tmp, " ? \"TRUE\" : \"FALSE\"", NULL);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+
+      sp_str_free(&buf_tmp);
     } else if (strcmp(type, "char") == 0 || //
                strcmp(type, "gchar") == 0 || //
                strcmp(type, "gint8") == 0 || //
@@ -398,6 +412,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                strcmp(type, "guint8") == 0 || //
                strcmp(type, "uint8_t") == 0) {
       result->format = "%d";
+      /* TODO if pointer hex? */
     } else if (strcmp(type, "short") == 0 || //
                strcmp(type, "gshort") == 0 || //
                strcmp(type, "gint16") == 0 || //
@@ -485,7 +500,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
         sp_str_free(&buf_tmp);
       } else {
         assert(false);
-        result->format = "TODO";
       }
     }
   }
@@ -625,7 +639,9 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       sp_str_append(&buf, ", ");
       if (field_it->complex_printf) {
         char buf_tmp[256] = {'\0'};
-        snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in");
+        //TODO support "in->{var}".format(map) expansion
+        snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in",
+                 "in", "in");
         sp_str_append(&buf, buf_tmp);
       } else {
         sp_str_appends(&buf, "in->", field_it->variable, NULL);
