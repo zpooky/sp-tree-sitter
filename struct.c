@@ -133,7 +133,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     goto Lout;
   }
 
-  sp_str_append(&buf, "static inline const char* sp_print_");
+  sp_str_append(&buf, "static inline const char* sp_debug_");
   sp_str_append(&buf, type_name);
   sp_str_append(&buf, "(const ");
   sp_str_append(&buf, type_name_t ? "" : "enum ");
@@ -326,13 +326,13 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               if (pointer) {
                 prefix = "";
               }
-              sp_str_appends(&buf_tmp, "sp_print_", enum_type, "(", prefix,
+              sp_str_appends(&buf_tmp, "sp_debug_", enum_type, "(", prefix,
                              "%s->", result->variable, ")", NULL);
               result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
               result->complex_printf = true;
 
               /* enum $type_identifier $field_identifier; */
-              // sp_print_$enum_type($var->($result->variable));
+              // sp_debug_$enum_type($var->($result->variable));
               sp_str_free(&buf_tmp);
               free(enum_type);
             }
@@ -355,13 +355,13 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 if (pointer) {
                   prefix = "";
                 }
-                sp_str_appends(&buf_tmp, "sp_print_", struct_type, "(", prefix,
+                sp_str_appends(&buf_tmp, "sp_debug_", struct_type, "(", prefix,
                                "%s->", result->variable, ")", NULL);
                 result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
                 result->complex_printf = true;
 
                 /* struct $struct_specifier $field_identifier; */
-                // sp_print_$struct_type($var->($result->variable));
+                // sp_debug_$struct_type($var->($result->variable));
                 sp_str_free(&buf_tmp);
                 free(struct_type);
               }
@@ -496,7 +496,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
         if (pointer) {
           prefix = "";
         }
-        sp_str_appends(&buf_tmp, "sp_print_", type, "(", prefix, "%s->",
+        sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, "%s->",
                        result->variable, ")", NULL);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
@@ -615,7 +615,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     field_it = field_it->next;
   }
 
-  sp_str_appends(&buf, "static inline const char* sp_print_", type_name, "(",
+  sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
                  NULL);
   sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name,
                  " *in) {\n", NULL);

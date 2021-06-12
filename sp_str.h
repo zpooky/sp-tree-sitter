@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 /* TODO sp_str_append_printf();
- * TODO sp_str_appends(, const char*..., NULL);
  */
 
 //==============================
@@ -97,6 +96,10 @@ sp_str_clear(sp_str *);
 //==============================
 void
 sp_str_swap(sp_str *, sp_str *);
+
+//==============================
+const char *
+sp_debug_sp_str(const struct sp_str *in);
 
 //==============================
 #endif
