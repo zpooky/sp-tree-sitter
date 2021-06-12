@@ -74,3 +74,8 @@ clean:
 	$(RM) $(PROG) $(STRUCT)
 	$(RM) $(DEPENDS)
 	$(MAKE) -C tree-sitter clean
+
+.PHONEY: install
+install: all
+	install -d $(DESTDIR)$(PREFIX)/bin/
+	install $(STRUCT) $(DESTDIR)$(PREFIX)/bin/
