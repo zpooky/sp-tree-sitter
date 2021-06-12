@@ -24,7 +24,7 @@ LDLIBS = -Ltree-sitter -l:libtree-sitter.a -Lbuild -l:languages.so
 LDFLAGS = -Wl,-rpath,build # write rpath to executable for where to find languages.so
 
 PROG = parse
-STRUCT = struct
+STRUCT = sp_struct_to_string
 
 # default
 # CC = gcc

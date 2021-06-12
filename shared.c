@@ -23,6 +23,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
    * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
    * TODO int* s -> "%d", in->s ? *in->s : 1337;
    * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
+   * TODO union { char *buf; char sbuf[16]; }; ??
    */
 
   result->content = ""

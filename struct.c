@@ -215,7 +215,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   char *type = NULL;
   bool array = false;
 
-  printf("%s\n", __func__);
+  fprintf(stderr, "%s\n", __func__);
 
   result = calloc(1, sizeof(*result));
 
@@ -248,8 +248,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
     } else {
       tmp = sp_find_direct_child(subject, "array_declarator");
       if (!ts_node_is_null(tmp)) {
-#if 1
-        printf("--\n");
+#if 0
+        fprintf(stderr,"--\n");
         uint32_t i;
         for (i = 0; i < ts_node_child_count(tmp); ++i) {
           TSNode child = ts_node_child(tmp, i);
@@ -261,7 +261,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
           fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
                   ts_node_type(child));
         }
-        printf("--\n");
+        fprintf(stderr,"--\n");
 #endif
         TSNode field_id = sp_find_direct_child(subject, "field_identifier");
         if (!ts_node_is_null(field_id)) {
@@ -386,8 +386,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       result->format = "%s";
 
       if (pointer) {
-        sp_str_appends(&buf_tmp, "!%s->", result->variable, " ? \"NULL\" : *%s->",
-                       result->variable, NULL);
+        sp_str_appends(&buf_tmp, "!%s->", result->variable,
+                       " ? \"NULL\" : *%s->", result->variable, NULL);
       } else {
         sp_str_appends(&buf_tmp, "%s->", result->variable, NULL);
       }
@@ -527,8 +527,8 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_init(&buf, 0);
 
   fprintf(stderr, "%s\n", __func__);
-#if 1
-  printf("--\n");
+#if 0
+  fprintf(stderr,"--\n");
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child = ts_node_child(subject, i);
     uint32_t s   = ts_node_start_byte(child);
@@ -539,7 +539,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
             ts_node_type(child));
   }
-  printf("--\n");
+  fprintf(stderr,"--\n");
 #endif
 #if 0
   char *p = ts_node_string(subject);
@@ -607,7 +607,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 #endif
   field_it = field_dummy.next;
   while (field_it) {
-    printf("%s, %s\n", field_it->format, field_it->variable);
+    fprintf(stderr, "%s, %s\n", field_it->format, field_it->variable);
     field_it = field_it->next;
   }
 
@@ -626,7 +626,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
                      NULL);
       ++complete;
     } else {
-      fprintf(stdout, "Unknown: %s\n",
+      fprintf(stderr, "Unknown: %s\n",
               field_it->variable ? field_it->variable : "NULL");
     }
     field_it = field_it->next;
@@ -660,28 +660,43 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   return EXIT_SUCCESS;
 }
 
+static uint32_t
+sp_find_last_line(TSNode subject)
+{
+  TSPoint p = ts_node_end_point(subject);
+  return p.row + 1 + 1;
+}
+
 int
 main(int argc, const char *argv[])
 {
   int res                  = EXIT_FAILURE;
   TSPoint pos              = {.row = 0, .column = 0};
   struct sp_ts_Context ctx = {0};
+  const char *in_type      = NULL;
+  const char *in_file      = NULL;
+  const char *in_line      = NULL;
+  const char *in_column    = NULL;
 
-  if (argc != 4) {
-    fprintf(stderr, "%s file line column\n", argv[0]);
+  if (argc != 5) {
+    fprintf(stderr, "%s crunch|line file line column\n", argv[0]);
+    return EXIT_FAILURE;
+  }
+  in_type   = argv[1];
+  in_file   = argv[2];
+  in_line   = argv[3];
+  in_column = argv[4];
+
+  if (!sp_parse_uint32_t(in_line, &pos.row)) {
+    fprintf(stderr, "failed to parse line '%s'\n", in_line);
+    return EXIT_FAILURE;
+  }
+  if (!sp_parse_uint32_t(in_column, &pos.column)) {
+    fprintf(stderr, "failed to parse column '%s'\n", in_column);
     return EXIT_FAILURE;
   }
 
-  if (!sp_parse_uint32_t(argv[2], &pos.row)) {
-    fprintf(stderr, "failed to parse line '%s'\n", argv[2]);
-    return EXIT_FAILURE;
-  }
-  if (!sp_parse_uint32_t(argv[3], &pos.column)) {
-    fprintf(stderr, "failed to parse column '%s'\n", argv[3]);
-    return EXIT_FAILURE;
-  }
-
-  if (mmap_file(argv[1], &ctx.file) == 0) {
+  if (mmap_file(in_file, &ctx.file) == 0) {
     TSParser *parser       = ts_parser_new();
     const TSLanguage *lang = tree_sitter_c();
     ts_parser_set_language(parser, lang);
@@ -730,9 +745,23 @@ main(int argc, const char *argv[])
 
           if (!ts_node_is_null(found)) {
             if (strcmp(ts_node_type(found), struct_spec) == 0) {
-              res = sp_print_struct(&ctx, found);
+              if (strcmp(in_type, "crunch") == 0) {
+                res = sp_print_struct(&ctx, found);
+              } else {
+                uint32_t last_line;
+                last_line = sp_find_last_line(found);
+                fprintf(stdout, "%u", last_line);
+                res = EXIT_SUCCESS;
+              }
             } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
-              res = sp_print_enum(&ctx, found);
+              if (strcmp(in_type, "crunch") == 0) {
+                res = sp_print_enum(&ctx, found);
+              } else {
+                uint32_t last_line;
+                last_line = sp_find_last_line(found);
+                fprintf(stdout, "%u", last_line);
+                res = EXIT_SUCCESS;
+              }
             }
           }
         } else {
