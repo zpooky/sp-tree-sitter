@@ -48,8 +48,8 @@ mmap_file(const char *file, struct sp_ts_file *result)
                     "} type_t;\n"
                     "struct sut {\n"
                     /* "char buf[256];\n" */
-                    "  const char* string0;\n"
-                    /* "  char* string1;\n" */
+                    /* "  const char* string0;\n" */
+                    "  char* string1;\n"
                     /* "  const long long ll0;\n" */
                     /* "  unsigned long long ull1;\n" */
                     /* "  long double ld0;\n" */
@@ -69,7 +69,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
 /*                     "    int int0;\n" */
 /*                     "  } anon_struct0;\n" */
 /*                     "  enum { ENUM_1, ENUM_2 } anon_enum0;\n" */
-                    /* "  enum enum_type enum0;\n" */
+                    "  enum enum_type enum0;\n"
                     /* "  enum_t enum1;\n" */
 /*                     "  union { int i1; float f2; } anon_union0;\n" */
 /*                     "  union union_type union0;\n" */

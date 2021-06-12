@@ -75,7 +75,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   TSNode tmp;
   sp_str buf;
   char *type_name              = NULL;
-  bool type_name_typedef       = false;
+  bool type_name_t             = false;
   struct sp_str_list dummy     = {0};
   struct sp_str_list *enums_it = &dummy;
 
@@ -94,8 +94,8 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
         tmp = sp_find_direct_child(parent, "type_identifier");
         if (!ts_node_is_null(tmp)) {
           /* typedef struct * { ... } type_name; */
-          type_name_typedef = true;
-          type_name         = sp_struct_value(ctx, tmp);
+          type_name_t = true;
+          type_name   = sp_struct_value(ctx, tmp);
         }
       }
     }
@@ -136,7 +136,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_append(&buf, "static inline const char* sp_print_");
   sp_str_append(&buf, type_name);
   sp_str_append(&buf, "(const ");
-  sp_str_append(&buf, type_name_typedef ? "" : "enum ");
+  sp_str_append(&buf, type_name_t ? "" : "enum ");
   sp_str_append(&buf, type_name);
   sp_str_append(&buf, " *in) {\n");
   sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
@@ -175,6 +175,7 @@ struct arg_list {
   char *format;
   char *variable;
   bool complete;
+  char *complex_raw;
   bool complex_printf;
   struct arg_list *next;
 };
@@ -327,8 +328,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               }
               sp_str_appends(&buf_tmp, "sp_print_", enum_type, "(", prefix,
                              "%s->", result->variable, ")", NULL);
-              free(result->variable);
-              result->variable       = strdup(sp_str_c_str(&buf_tmp));
+              /* free(result->variable); */
+              result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
               result->complex_printf = true;
 
               /* enum $type_identifier $field_identifier; */
@@ -357,8 +358,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 }
                 sp_str_appends(&buf_tmp, "sp_print_", struct_type, "(", prefix,
                                "%s->", result->variable, ")", NULL);
-                free(result->variable);
-                result->variable       = strdup(sp_str_c_str(&buf_tmp));
+                /* free(result->variable); */
+                result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
                 result->complex_printf = true;
 
                 /* struct $struct_specifier $field_identifier; */
@@ -480,8 +481,8 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
         }
         sp_str_appends(&buf_tmp, "sp_print_", type, "(", prefix, "%s->",
                        result->variable, ")", NULL);
-        free(result->variable);
-        result->variable       = strdup(sp_str_c_str(&buf_tmp));
+        /* free(result->variable); */
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
 
         sp_str_free(&buf_tmp);
@@ -506,7 +507,7 @@ static int
 sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 {
   char *type_name             = NULL;
-  bool type_name_typedef      = false;
+  bool type_name_t            = false;
   size_t complete             = 0;
   struct arg_list field_dummy = {0};
   struct arg_list *field_it   = &field_dummy;
@@ -548,8 +549,8 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
         tmp = sp_find_direct_child(parent, "type_identifier");
         if (!ts_node_is_null(tmp)) {
           /* typedef struct * { ... } type_name; */
-          type_name_typedef = true;
-          type_name         = sp_struct_value(ctx, tmp);
+          type_name_t = true;
+          type_name   = sp_struct_value(ctx, tmp);
         }
       }
     }
@@ -590,15 +591,11 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     uint32_t e   = ts_node_end_byte(ts_node_child(subject, i));
     uint32_t len = e - s;
     fprintf(stderr, ".%u\n", i);
-    fprintf(stderr, "s: %u\n", s);
-    fprintf(stderr, "e: %u\n", e);
-    fprintf(stderr, "len: %u\n", len);
     fprintf(stderr, "children: %u\n", ts_node_child_count(subject));
     fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
             ts_node_type(ts_node_child(subject, i)));
   }
 #endif
-  printf("type_name: %s\n", type_name ? type_name : "NULL");
   field_it = field_dummy.next;
   while (field_it) {
     printf("%s, %s\n", field_it->format, field_it->variable);
@@ -607,7 +604,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 
   sp_str_appends(&buf, "static inline const char* sp_print_", type_name, "(",
                  NULL);
-  sp_str_appends(&buf, "const ", type_name_typedef ? "" : "struct ", type_name,
+  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name,
                  " *in) {\n", NULL);
   sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
   sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
@@ -616,10 +613,9 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     if (field_it->complete) {
       if (complete == 0) {
         sp_str_append(&buf, "  snprintf(buf, sizeof(buf), \"");
-      } else {
-        sp_str_append(&buf, ", ");
       }
-      sp_str_append(&buf, field_it->format);
+      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
+                     NULL);
       ++complete;
     } else {
       fprintf(stdout, "Unknown: %s\n",
@@ -637,7 +633,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       sp_str_append(&buf, ", ");
       if (field_it->complex_printf) {
         char buf_tmp[256] = {'\0'};
-        snprintf(buf_tmp, sizeof(buf_tmp), field_it->variable, "in");
+        snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in");
         sp_str_append(&buf, buf_tmp);
       } else {
         sp_str_appends(&buf, "in->", field_it->variable, NULL);
