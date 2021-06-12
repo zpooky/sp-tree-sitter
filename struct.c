@@ -328,7 +328,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               }
               sp_str_appends(&buf_tmp, "sp_print_", enum_type, "(", prefix,
                              "%s->", result->variable, ")", NULL);
-              /* free(result->variable); */
               result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
               result->complex_printf = true;
 
@@ -358,7 +357,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 }
                 sp_str_appends(&buf_tmp, "sp_print_", struct_type, "(", prefix,
                                "%s->", result->variable, ")", NULL);
-                /* free(result->variable); */
                 result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
                 result->complex_printf = true;
 
@@ -393,13 +391,13 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       } else if (pointer) {
         result->format = "%s";
       } else {
-        result->format = "'%c'";
+        result->format = "%c";
       }
     } else if (strcmp(type, "uchar") == 0 || //
                strcmp(type, "guchar") == 0 || //
                strcmp(type, "guint8") == 0 || //
                strcmp(type, "uint8_t") == 0) {
-      result->format = "'%d'";
+      result->format = "%d";
     } else if (strcmp(type, "short") == 0 || //
                strcmp(type, "gshort") == 0 || //
                strcmp(type, "gint16") == 0 || //
@@ -481,7 +479,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
         }
         sp_str_appends(&buf_tmp, "sp_print_", type, "(", prefix, "%s->",
                        result->variable, ")", NULL);
-        /* free(result->variable); */
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
 
@@ -495,8 +492,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
 
   if (result && result->format && result->variable) {
     result->complete = true;
-    /*     result->format   = result->format ? result->format : "TODO"; */
-    /*     result->variable = result->variable ? result->variable : "TODO"; */
   }
 
   free(type);
@@ -609,11 +604,10 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
   sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
   field_it = field_dummy.next;
+  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p)[",
+                 NULL);
   while (field_it) {
     if (field_it->complete) {
-      if (complete == 0) {
-        sp_str_append(&buf, "  snprintf(buf, sizeof(buf), \"");
-      }
       sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
                      NULL);
       ++complete;
@@ -623,9 +617,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     }
     field_it = field_it->next;
   } //while
-  if (complete) {
-    sp_str_append(&buf, "\"");
-  }
+  sp_str_append(&buf, "]\", in");
 
   field_it = field_dummy.next;
   while (field_it) {
@@ -641,11 +633,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     }
     field_it = field_it->next;
   } //while
-  if (complete) {
-    sp_str_append(&buf, ");\n");
-  } else {
-    sp_str_append(&buf, "  buf[0] = '\\0';\n");
-  }
+  sp_str_append(&buf, ");\n");
   sp_str_append(&buf, "  return buf;\n");
   sp_str_append(&buf, "}\n");
 
