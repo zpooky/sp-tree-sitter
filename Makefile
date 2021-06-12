@@ -55,10 +55,13 @@ endif
 .PHONEY: all
 all: $(PROG) $(STRUCT)
 
-$(PROG): $(PARSE_OBJECTS) $(SHARED_OBJECTS)
+tree-sitter/libtree-sitter.a:
+	$(MAKE) -C tree-sitter
+
+$(PROG): $(PARSE_OBJECTS) $(SHARED_OBJECTS) tree-sitter/libtree-sitter.a
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(STRUCT): $(STRUCT_OBJECTS) $(SHARED_OBJECTS)
+$(STRUCT): $(STRUCT_OBJECTS) $(SHARED_OBJECTS) tree-sitter/libtree-sitter.a
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 -include $(DEPENDS)
@@ -70,3 +73,4 @@ clean:
 	$(RM) $(ALL_OBJECTS)
 	$(RM) $(PROG) $(STRUCT)
 	$(RM) $(DEPENDS)
+	$(MAKE) -C tree-sitter clean
