@@ -20,6 +20,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
   memset(&st, 0, sizeof(st));
 
   /* TODO char s[256]; "%.s",256,in->s
+   * TODO char s[SIZE]; "%.s",(int)SIZE,in->s
    * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
    * TODO int* s -> "%d", in->s ? *in->s : 1337;
    * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd

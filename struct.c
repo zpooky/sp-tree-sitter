@@ -396,6 +396,10 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       result->complex_printf = true;
 
       sp_str_free(&buf_tmp);
+    } else if (strcmp(type, "void") == 0) {
+      if (pointer) {
+        result->format = "%p";
+      }
     } else if (strcmp(type, "char") == 0 || //
                strcmp(type, "gchar") == 0 || //
                strcmp(type, "gint8") == 0 || //
