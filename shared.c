@@ -21,12 +21,10 @@ mmap_file(const char *file, struct sp_ts_file *result)
 
   /*
    * TODO everything should be concattenated to a a single string. !Not multiple prints!!
-   * TODO struct asd s; -> sp_print_asd(&in->s);
-   * TODO struct asd *s; -> sp_print_asd(in->s);
-   * TODO asd_t s; -> sp_print_asd(&in->s);
-   * TODO asd_t *s; -> sp_print_asd(in->s);
    * TODO char s[256]; "%.s",256,in->s
    * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
+   * TODO int* s -> "%d", in->s ? *in->s : 1337;
+   * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
    */
 
   result->content = ""

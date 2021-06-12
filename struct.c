@@ -332,7 +332,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               result->complex_printf = true;
 
               /* enum $type_identifier $field_identifier; */
-              //TODO: sp_print_$enum_type($var->($result->variable));
+              // sp_print_$enum_type($var->($result->variable));
               sp_str_free(&buf_tmp);
               free(enum_type);
             }
@@ -362,7 +362,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 result->complex_printf = true;
 
                 /* struct $struct_specifier $field_identifier; */
-                //TODO: sp_print_$struct_type($var->($result->variable));
+                // sp_print_$struct_type($var->($result->variable));
                 sp_str_free(&buf_tmp);
                 free(struct_type);
               }
@@ -563,14 +563,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       if (strcmp(ts_node_type(field), "field_declaration") == 0) {
         struct arg_list *arg = NULL;
         uint32_t a;
-        /*
-         * uint32_t s   = ts_node_start_byte(field);
-         * uint32_t e   = ts_node_end_byte(field);
-         * uint32_t len = e - s;
-         * fprintf(stderr, ".%u\n", i);
-         * fprintf(stderr, "children: %u\n", ts_node_child_count(field));
-         * fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s], ts_node_type(field));
-         */
+
         if ((arg = __sp_to_str_struct_field(ctx, field))) {
           field_it = field_it->next = arg;
         }
@@ -612,12 +605,10 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     field_it = field_it->next;
   }
 
-  sp_str_append(&buf, "static inline const char* sp_print_");
-  sp_str_append(&buf, type_name);
-  sp_str_append(&buf, "(const ");
-  sp_str_append(&buf, type_name_typedef ? "" : "struct ");
-  sp_str_append(&buf, type_name);
-  sp_str_append(&buf, " *in) {\n");
+  sp_str_appends(&buf, "static inline const char* sp_print_", type_name, "(",
+                 NULL);
+  sp_str_appends(&buf, "const ", type_name_typedef ? "" : "struct ", type_name,
+                 " *in) {\n", NULL);
   sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
   sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
   field_it = field_dummy.next;
@@ -649,8 +640,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
         snprintf(buf_tmp, sizeof(buf_tmp), field_it->variable, "in");
         sp_str_append(&buf, buf_tmp);
       } else {
-        sp_str_append(&buf, "in->");
-        sp_str_append(&buf, field_it->variable);
+        sp_str_appends(&buf, "in->", field_it->variable, NULL);
       }
     }
     field_it = field_it->next;
