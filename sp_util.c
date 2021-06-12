@@ -8,7 +8,7 @@
 #include <ctype.h>
 #include <string.h>
 
-#include <execinfo.h> // backtrace
+/* #include <execinfo.h> // backtrace */
 
 //==============================
 static const char hex_encode_lookup[] = {
@@ -340,6 +340,7 @@ sp_util_std_flush(void)
   fflush(stderr);
 }
 
+#if 0
 static void inline sp_util_backtrace(FILE *dest, const char *proto)
 {
   const int BT_BUF_SIZE = 100;
@@ -362,6 +363,7 @@ static void inline sp_util_backtrace(FILE *dest, const char *proto)
     free(strings);
   }
 }
+#endif
 
 void
 sp_util_assert(const char *file,
@@ -378,7 +380,7 @@ sp_util_assert(const char *file,
           ":" SP_CL_GREEN "%d" SP_CL_RESET "\n\n",
           file, proto, line);
 
-  sp_util_backtrace(dest, proto);
+  /* sp_util_backtrace(dest, proto); */
   sp_util_std_flush();
 
   /* raise(SIGABRT); */

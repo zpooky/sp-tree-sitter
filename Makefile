@@ -1,7 +1,7 @@
 # https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 PARSE_SOURCES = main.c
 STRUCT_SOURCES = struct.c
-SHARED_SOURCES = shared.c sp_util.c sp_str.c
+SHARED_SOURCES = shared.c sp_util.c sp_str.c lang/tree-sitter-c/src/parser.c
 # SOURCES = $(shell find . -iname "*.c" | grep -v '.ccls-cache' | xargs)
 # SOURCES = $(wildcard *.c)
 
@@ -20,8 +20,9 @@ LDFLAGS = -fno-omit-frame-pointer -fstack-protector -fsanitize=address
 #-fsanitize=thread
 
 # LDFLAGS += $(shell pkg-config --libs libsystemd glib-2.0)
-LDLIBS = -Ltree-sitter -l:libtree-sitter.a -Lbuild -l:languages.so
+LDLIBS = -Ltree-sitter -l:libtree-sitter.a #-Lbuild -l:languages.so
 LDFLAGS = -Wl,-rpath,build # write rpath to executable for where to find languages.so
+LDFLAGS =
 
 PROG = parse
 STRUCT = sp_struct_to_string
@@ -29,7 +30,7 @@ STRUCT = sp_struct_to_string
 # default
 # CC = gcc
 # CC = clang
-# CC = musl-gcc -static
+CC = musl-gcc -static
 
 # https://github.com/lefticus/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#gcc%E2%80%94clang
 CFLAGS += -std=gnu11
