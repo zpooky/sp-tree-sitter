@@ -41,8 +41,9 @@ sp_find_direct_child(TSNode subject, const char *needle)
   TSNode empty = {0};
   uint32_t i;
   for (i = 0; i < ts_node_child_count(subject); ++i) {
-    TSNode child = ts_node_child(subject, i);
-    if (strcmp(ts_node_type(child), needle) == 0) {
+    TSNode child          = ts_node_child(subject, i);
+    const char *node_type = ts_node_type(child);
+    if (strcmp(node_type, needle) == 0) {
       return child;
     }
   }
@@ -311,13 +312,14 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       } else {
         tmp = sp_find_direct_child(subject, "enum_specifier");
         if (!ts_node_is_null(tmp)) {
+          TSNode type_id;
 
-          tmp = sp_find_direct_child(tmp, "type_identifier");
-          if (!ts_node_is_null(tmp)) {
+          type_id = sp_find_direct_child(tmp, "type_identifier");
+          if (!ts_node_is_null(type_id)) {
             result->format = "%s";
             if (pointer > 1) {
             } else {
-              char *enum_type    = sp_struct_value(ctx, tmp);
+              char *enum_type    = sp_struct_value(ctx, type_id);
               const char *prefix = "&";
               sp_str buf_tmp;
               sp_str_init(&buf_tmp, 0);
@@ -335,6 +337,70 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               // sp_debug_$enum_type($var->($result->variable));
               sp_str_free(&buf_tmp);
               free(enum_type);
+            }
+          } else {
+            TSNode enum_list;
+
+            enum_list = sp_find_direct_child(tmp, "enumerator_list");
+            if (!ts_node_is_null(enum_list)) {
+              struct sp_str_list enum_dummy = {0};
+              struct sp_str_list *enums_it  = &enum_dummy;
+              sp_str buf_tmp;
+              const char *var =
+                result->variable ? result->variable : "TODO"; //REMOVE
+              uint32_t i;
+
+              sp_str_init(&buf_tmp, 0);
+
+              for (i = 0; i < ts_node_child_count(enum_list); ++i) {
+                TSNode enumerator = ts_node_child(enum_list, i);
+                if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
+                  uint32_t a;
+
+                  for (a = 0; a < ts_node_child_count(enumerator); ++a) {
+                    TSNode enum_id = ts_node_child(enumerator, a);
+                    if (strcmp(ts_node_type(enum_id), "identifier") == 0) {
+                      enums_it = enums_it->next = calloc(1, sizeof(*enums_it));
+                      enums_it->value           = sp_struct_value(ctx, enum_id);
+                    }
+                  } //for
+                }
+              } //for
+#if 0
+              fprintf(stderr, "------------enum\n");
+              for (i = 0; i < ts_node_child_count(enum_list); ++i) {
+                TSNode child = ts_node_child(enum_list, i);
+                uint32_t s   = ts_node_start_byte(child);
+                uint32_t e   = ts_node_end_byte(child);
+                uint32_t len = e - s;
+                fprintf(stderr, ".%u\n", i);
+                fprintf(stderr, "children: %u\n", ts_node_child_count(child));
+                fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
+                        ts_node_type(child));
+              }
+              fprintf(stderr, "------------enum END\n");
+#endif
+              /* enum { ONE, ... } field_identifier; */
+              enums_it = enum_dummy.next;
+              while (enums_it) {
+                sp_str_appends(&buf_tmp, "in->", var, " == ", enums_it->value,
+                               " ? \"", enums_it->value, "\" : ", NULL);
+                enums_it = enums_it->next;
+              }
+              if (enum_dummy.next) {
+                sp_str_append(&buf_tmp, "\"__UNDEF\"");
+              }
+              result->format         = "%s";
+              result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+              result->complex_printf = true;
+
+              enums_it = enum_dummy.next;
+              while (enums_it) {
+                struct sp_str_list *next = enums_it->next;
+                free(enums_it);
+                enums_it = next;
+              }
+              sp_str_free(&buf_tmp);
             }
           }
         } else {
@@ -643,6 +709,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       sp_str_append(&buf, ", ");
       if (field_it->complex_printf) {
         char buf_tmp[256] = {'\0'};
+        assert(field_it->complex_raw);
         //TODO support "in->{var}".format(map) expansion
         snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in",
                  "in", "in");
