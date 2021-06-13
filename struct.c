@@ -249,27 +249,37 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
     } else {
       tmp = sp_find_direct_child(subject, "array_declarator");
       if (!ts_node_is_null(tmp)) {
-#if 0
-        fprintf(stderr,"--\n");
         uint32_t i;
+        TSNode field_id;
+        char *array_len  = strdup("0");
+        bool start_found = false;
+        sp_str buf_tmp;
+
+        sp_str_init(&buf_tmp, 0);
+
         for (i = 0; i < ts_node_child_count(tmp); ++i) {
           TSNode child = ts_node_child(tmp, i);
-          uint32_t s   = ts_node_start_byte(child);
-          uint32_t e   = ts_node_end_byte(child);
-          uint32_t len = e - s;
-          fprintf(stderr, ".%u\n", i);
-          fprintf(stderr, "children: %u\n", ts_node_child_count(child));
-          fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-                  ts_node_type(child));
-        }
-        fprintf(stderr,"--\n");
-#endif
-        TSNode field_id = sp_find_direct_child(subject, "field_identifier");
+          if (start_found) {
+            free(array_len);
+            array_len   = sp_struct_value(ctx, child);
+            start_found = false;
+          } else if (strcmp(ts_node_type(child), "[") == 0) {
+            start_found = true;
+          }
+        } //for
+
+        field_id = sp_find_direct_child(tmp, "field_identifier");
         if (!ts_node_is_null(field_id)) {
           array            = true;
           result->variable = sp_struct_value(ctx, field_id);
           /* TODO: '[' XXX ']' */
         }
+
+        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable, NULL);
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
+
+        sp_str_free(&buf_tmp);
       }
     }
   }

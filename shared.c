@@ -19,10 +19,7 @@ mmap_file(const char *file, struct sp_ts_file *result)
   struct stat st = {0};
   memset(&st, 0, sizeof(st));
 
-  /* TODO char s[256]; "%.s",256,in->s
-   * TODO char s[SIZE]; "%.s",(int)SIZE,in->s
-   * TODO enum { ENUM_1, ENUM_2 } s; -> in->s == ENUM_1 ? "ENUM_1" : in->s == ENUM_2 ? "ENUM_2" : "__UNDEF";
-   * TODO int* s -> "%d", in->s ? *in->s : 1337;
+  /* TODO int* s -> "%d", in->s ? *in->s : 1337;
    * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
    * TODO union { char *buf; char sbuf[16]; }; ??
    */
@@ -30,22 +27,6 @@ mmap_file(const char *file, struct sp_ts_file *result)
   result->content = ""
                     "typedef enum enum_type {ENUM_X, ENUM_Y } enum_t;\n"
                     "typedef union union_type { int i1; float f2;} union_t;\n"
-                    "struct type {\n"
-                    "  int int0;\n"
-                    "  gint int1;\n"
-                    "  char char0;\n"
-                    "  gchar char1;\n"
-                    "  const char* string0;\n"
-                    "  float float0;\n"
-                    "  double double0;\n"
-                    "};\n"
-                    "typedef struct {\n"
-                    "  int int0;\n"
-                    "  char char0;\n"
-                    "  const char* string0;\n"
-                    "  float float0;\n"
-                    "  double double0;\n"
-                    "} type_t;\n"
                     "struct sut {\n"
                     /* "char buf[256];\n" */
                     /* "  const char* string0;\n" */
