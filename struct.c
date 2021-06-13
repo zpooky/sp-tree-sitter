@@ -275,7 +275,9 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
           /* TODO: '[' XXX ']' */
         }
 
-        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable, NULL);
+        /* char $field_identifier[$array_len] */
+        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable,
+                       NULL);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
 
@@ -339,7 +341,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                 prefix = "";
               }
               sp_str_appends(&buf_tmp, "sp_debug_", enum_type, "(", prefix,
-                             "%s->", result->variable, ")", NULL);
+                             "in->", result->variable, ")", NULL);
               result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
               result->complex_printf = true;
 
@@ -431,7 +433,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                   prefix = "";
                 }
                 sp_str_appends(&buf_tmp, "sp_debug_", struct_type, "(", prefix,
-                               "%s->", result->variable, ")", NULL);
+                               "in->", result->variable, ")", NULL);
                 result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
                 result->complex_printf = true;
 
@@ -461,10 +463,10 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       result->format = "%s";
 
       if (pointer) {
-        sp_str_appends(&buf_tmp, "!%s->", result->variable,
-                       " ? \"NULL\" : *%s->", result->variable, NULL);
+        sp_str_appends(&buf_tmp, "!in->", result->variable,
+                       " ? \"NULL\" : *in->", result->variable, NULL);
       } else {
-        sp_str_appends(&buf_tmp, "%s->", result->variable, NULL);
+        sp_str_appends(&buf_tmp, "in->", result->variable, NULL);
       }
       sp_str_appends(&buf_tmp, " ? \"TRUE\" : \"FALSE\"", NULL);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -480,7 +482,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
                strcmp(type, "gint8") == 0 || //
                strcmp(type, "int8_t") == 0) {
       if (array) {
-        result->format = "%.s";
+        result->format = "%.*s";
       } else if (pointer) {
         result->format = "%s";
       } else {
@@ -571,7 +573,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
         if (pointer) {
           prefix = "";
         }
-        sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, "%s->",
+        sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, "in->",
                        result->variable, ")", NULL);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
@@ -651,13 +653,13 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       /* fprintf(stderr, "i.%u\n", i); */
       if (strcmp(ts_node_type(field), "field_declaration") == 0) {
         struct arg_list *arg = NULL;
-        uint32_t a;
 
         if ((arg = __sp_to_str_struct_field(ctx, field))) {
           field_it = field_it->next = arg;
         }
 
 #if 0
+        uint32_t a;
         for (a = 0; a < ts_node_child_count(field); ++a) {
           TSNode child = ts_node_child(field, a);
           uint32_t s   = ts_node_start_byte(child);
@@ -712,12 +714,13 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     if (field_it->complete) {
       sp_str_append(&buf, ", ");
       if (field_it->complex_printf) {
-        char buf_tmp[256] = {'\0'};
+        /* char buf_tmp[256] = {'\0'}; */
         assert(field_it->complex_raw);
         //TODO support "in->{var}".format(map) expansion
-        snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in",
-                 "in", "in");
-        sp_str_append(&buf, buf_tmp);
+        /*         snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in", */
+        /*                  "in", "in"); */
+        /* sp_str_append(&buf, buf_tmp); */
+        sp_str_append(&buf, field_it->complex_raw);
       } else {
         sp_str_appends(&buf, "in->", field_it->variable, NULL);
       }
