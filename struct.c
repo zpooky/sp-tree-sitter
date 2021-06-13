@@ -216,7 +216,7 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
   char *type = NULL;
   bool array = false;
 
-  fprintf(stderr, "%s\n", __func__);
+  /* fprintf(stderr, "%s\n", __func__); */
 
   result = calloc(1, sizeof(*result));
 
@@ -346,8 +346,6 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               struct sp_str_list enum_dummy = {0};
               struct sp_str_list *enums_it  = &enum_dummy;
               sp_str buf_tmp;
-              const char *var =
-                result->variable ? result->variable : "TODO"; //REMOVE
               uint32_t i;
 
               sp_str_init(&buf_tmp, 0);
@@ -380,19 +378,20 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
               }
               fprintf(stderr, "------------enum END\n");
 #endif
-              /* enum { ONE, ... } field_identifier; */
               enums_it = enum_dummy.next;
               while (enums_it) {
-                sp_str_appends(&buf_tmp, "in->", var, " == ", enums_it->value,
-                               " ? \"", enums_it->value, "\" : ", NULL);
+                sp_str_appends(&buf_tmp, "in->", result->variable,
+                               " == ", enums_it->value, " ? \"",
+                               enums_it->value, "\" : ", NULL);
                 enums_it = enums_it->next;
               }
               if (enum_dummy.next) {
                 sp_str_append(&buf_tmp, "\"__UNDEF\"");
+                /* enum { ONE, ... } field_identifier; */
+                result->format         = "%s";
+                result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+                result->complex_printf = true;
               }
-              result->format         = "%s";
-              result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-              result->complex_printf = true;
 
               enums_it = enum_dummy.next;
               while (enums_it) {
@@ -596,8 +595,8 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 
   sp_str_init(&buf, 0);
 
-  fprintf(stderr, "%s\n", __func__);
 #if 0
+  fprintf(stderr, "%s\n", __func__);
   fprintf(stderr,"--\n");
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child = ts_node_child(subject, i);
@@ -648,7 +647,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
           field_it = field_it->next = arg;
         }
 
-#if 1
+#if 0
         for (a = 0; a < ts_node_child_count(field); ++a) {
           TSNode child = ts_node_child(field, a);
           uint32_t s   = ts_node_start_byte(child);
@@ -675,11 +674,6 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
             ts_node_type(ts_node_child(subject, i)));
   }
 #endif
-  field_it = field_dummy.next;
-  while (field_it) {
-    fprintf(stderr, "%s, %s\n", field_it->format, field_it->variable);
-    field_it = field_it->next;
-  }
 
   sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
                  NULL);
