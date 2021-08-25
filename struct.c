@@ -21,14 +21,18 @@ extern const TSLanguage *
 tree_sitter_c(void);
 
 static TSNode
-sp_find_parent(TSNode subject, const char *needle0, const char *needle1)
+sp_find_parent(TSNode subject,
+               const char *needle0,
+               const char *needle1,
+               const char *needle2)
 {
   TSNode it     = subject;
   TSNode result = {0};
 
   while (!ts_node_is_null(it)) {
     if (strcmp(ts_node_type(it), needle0) == 0 ||
-        strcmp(ts_node_type(it), needle1) == 0) {
+        strcmp(ts_node_type(it), needle1) == 0 ||
+        strcmp(ts_node_type(it), needle2) == 0) {
       result = it;
     }
     it = ts_node_parent(it);
@@ -207,84 +211,14 @@ __rec_search(struct sp_ts_Context *ctx,
   return empty;
 }
 
-static struct arg_list *
-__sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
+static char *
+__field_type(struct sp_ts_Context *ctx,
+             TSNode subject,
+             uint32_t pointer,
+             struct arg_list *result)
 {
-  struct arg_list *result = NULL;
-  uint32_t pointer        = 0;
   TSNode tmp;
   char *type = NULL;
-  bool array = false;
-
-  /* fprintf(stderr, "%s\n", __func__); */
-
-  result = calloc(1, sizeof(*result));
-
-  /* TODO result->format, result->variable strdup() */
-
-  tmp = sp_find_direct_child(subject, "field_identifier");
-  if (!ts_node_is_null(tmp)) {
-    result->variable = sp_struct_value(ctx, tmp);
-  } else {
-    tmp = sp_find_direct_child(subject, "pointer_declarator");
-    if (!ts_node_is_null(tmp)) {
-      tmp = __rec_search(ctx, tmp, "field_identifier", 1, &pointer);
-      if (!ts_node_is_null(tmp)) {
-        result->variable = sp_struct_value(ctx, tmp);
-      }
-
-#if 0
-      uint32_t i;
-      for (i = 0; i < ts_node_child_count(tmp); ++i) {
-        TSNode child = ts_node_child(tmp, i);
-        uint32_t s   = ts_node_start_byte(child);
-        uint32_t e   = ts_node_end_byte(child);
-        uint32_t len = e - s;
-        fprintf(stderr, ".%u\n", i);
-        fprintf(stderr, "children: %u\n", ts_node_child_count(child));
-        fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-                ts_node_type(child));
-      }
-#endif
-    } else {
-      tmp = sp_find_direct_child(subject, "array_declarator");
-      if (!ts_node_is_null(tmp)) {
-        uint32_t i;
-        TSNode field_id;
-        char *array_len  = strdup("0");
-        bool start_found = false;
-        sp_str buf_tmp;
-
-        sp_str_init(&buf_tmp, 0);
-
-        for (i = 0; i < ts_node_child_count(tmp); ++i) {
-          TSNode child = ts_node_child(tmp, i);
-          if (start_found) {
-            free(array_len);
-            array_len   = sp_struct_value(ctx, child);
-            start_found = false;
-          } else if (strcmp(ts_node_type(child), "[") == 0) {
-            start_found = true;
-          }
-        } //for
-
-        field_id = sp_find_direct_child(tmp, "field_identifier");
-        if (!ts_node_is_null(field_id)) {
-          array            = true;
-          result->variable = sp_struct_value(ctx, field_id);
-          /* TODO: '[' XXX ']' */
-        }
-
-        /* char $field_identifier[$array_len] */
-        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable,
-                       NULL);
-        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-        result->complex_printf = true;
-
-        sp_str_free(&buf_tmp);
-      }
-    }
-  }
 
   tmp = sp_find_direct_child(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
@@ -448,6 +382,151 @@ __sp_to_str_struct_field(struct sp_ts_Context *ctx, TSNode subject)
       }
     }
   }
+  return type;
+}
+
+static struct arg_list *
+__field_name(struct sp_ts_Context *ctx,
+             TSNode subject,
+             const char *identifier,
+             uint32_t *pointer,
+             bool *array)
+{
+  struct arg_list *result = NULL;
+  TSNode tmp;
+  result = calloc(1, sizeof(*result));
+
+  tmp = sp_find_direct_child(subject, identifier);
+  if (!ts_node_is_null(tmp)) {
+    result->variable = sp_struct_value(ctx, tmp);
+  } else {
+    tmp = sp_find_direct_child(subject, "pointer_declarator");
+    if (!ts_node_is_null(tmp)) {
+      tmp = __rec_search(ctx, tmp, identifier, 1, pointer);
+      if (!ts_node_is_null(tmp)) {
+        result->variable = sp_struct_value(ctx, tmp);
+      }
+    } else {
+      tmp = sp_find_direct_child(subject, "array_declarator");
+      if (!ts_node_is_null(tmp)) {
+        uint32_t i;
+        TSNode field_id;
+        char *array_len  = NULL;
+        bool start_found = false;
+        sp_str buf_tmp;
+
+        sp_str_init(&buf_tmp, 0);
+
+        for (i = 0; i < ts_node_child_count(tmp); ++i) {
+          TSNode child = ts_node_child(tmp, i);
+          if (start_found) {
+            free(array_len);
+            array_len   = sp_struct_value(ctx, child);
+            start_found = false;
+          } else if (strcmp(ts_node_type(child), "[") == 0) {
+            start_found = true;
+          }
+        } //for
+
+        field_id = sp_find_direct_child(tmp, identifier);
+        if (!ts_node_is_null(field_id)) {
+          *array           = true;
+          result->variable = sp_struct_value(ctx, field_id);
+          /* TODO: '[' XXX ']' */
+        }
+        if (!array_len) {
+          array_len = strdup("0");
+        }
+
+        /* char $field_identifier[$array_len] */
+        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable,
+                       NULL);
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
+
+        sp_str_free(&buf_tmp);
+      }
+    }
+  }
+
+  return result;
+}
+
+static struct arg_list *
+__parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+{
+  struct arg_list *result = NULL;
+  char *type              = NULL;
+  uint32_t pointer        = 0;
+  bool array              = false;
+  char *identifier        = NULL;
+
+  result = __field_name(ctx, subject, "identifier", &pointer, &array);
+  type   = __field_type(ctx, subject, pointer, result);
+  /* printf("%s: %s\n", ts_node_string(subject), result->variable); */
+  printf("%s: %s\n", type, result->variable);
+
+  return result;
+}
+
+static int
+sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
+{
+  int res = EXIT_SUCCESS;
+  TSNode tmp;
+  char *type_name             = NULL;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
+  /* printf("here!"); */
+  tmp = sp_find_direct_child(subject, "function_declarator");
+  if (!ts_node_is_null(tmp)) {
+    tmp = sp_find_direct_child(tmp, "parameter_list");
+    if (!ts_node_is_null(tmp)) {
+      uint32_t i;
+      struct arg_list *arg = NULL;
+
+      for (i = 0; i < ts_node_child_count(tmp); ++i) {
+        TSNode parameter_decl = ts_node_child(tmp, i);
+        if (strcmp(ts_node_type(parameter_decl), "parameter_declaration") ==
+            0) {
+#if 0
+  uint32_t a;
+  for (a = 0; a < ts_node_child_count(parameter_decl); ++a) {
+    TSNode child = ts_node_child(parameter_decl, a);
+    printf("- %s\n", ts_node_string(child));
+  }
+#endif
+          if ((arg = __parameter_to_arg(ctx, parameter_decl))) {
+            field_it = field_it->next = arg;
+          }
+        }
+      } //for
+    } else {
+      printf("null\n");
+    }
+
+    /* struct type_name { ... }; */
+    /* type_name = sp_struct_value(ctx, tmp); */
+  } else {
+    /* printf("null\n"); */
+  }
+  return res;
+}
+
+static struct arg_list *
+__field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+{
+  struct arg_list *result = NULL;
+  uint32_t pointer        = 0;
+  char *type              = NULL;
+  bool array              = false;
+
+  /* fprintf(stderr, "%s\n", __func__); */
+
+  /* TODO result->format, result->variable strdup() */
+
+  result = __field_name(ctx, subject, "field_identifier", &pointer, &array);
+  type   = __field_type(ctx, subject, pointer, result);
 
   /* https://developer.gnome.org/glib/stable/glib-Basic-Types.html */
   /* https://en.cppreference.com/w/cpp/types/integer */
@@ -654,7 +733,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       if (strcmp(ts_node_type(field), "field_declaration") == 0) {
         struct arg_list *arg = NULL;
 
-        if ((arg = __sp_to_str_struct_field(ctx, field))) {
+        if ((arg = __field_to_arg(ctx, field))) {
           field_it = field_it->next = arg;
         }
 
@@ -745,6 +824,36 @@ sp_find_last_line(TSNode subject)
   return p.row + 1;
 }
 
+static int
+main_print(const char *in_file)
+{
+  int res                  = EXIT_FAILURE;
+  struct sp_ts_Context ctx = {0};
+  if (mmap_file(in_file, &ctx.file) == 0) {
+    TSNode root;
+    TSParser *parser       = ts_parser_new();
+    const TSLanguage *lang = tree_sitter_c();
+    ts_parser_set_language(parser, lang);
+
+    ctx.tree = ts_parser_parse_string(parser, NULL, ctx.file.content,
+                                      (uint32_t)ctx.file.length);
+    if (!ctx.tree) {
+      fprintf(stderr, "failed to parse\n");
+      goto Lerr;
+    }
+
+    root = ts_tree_root_node(ctx.tree);
+    if (!ts_node_is_null(root)) {
+      printf("%s\n", ts_node_string(root));
+    } else {
+      goto Lerr;
+    }
+  }
+  res = EXIT_SUCCESS;
+Lerr:
+  return res;
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -757,7 +866,14 @@ main(int argc, const char *argv[])
   const char *in_column    = NULL;
 
   if (argc != 5) {
-    fprintf(stderr, "%s crunch|line file line column\n", argv[0]);
+    if (argc > 1) {
+      in_type = argv[1];
+      if (argc == 3 && strcmp(in_type, "print") == 0) {
+        in_file = argv[2];
+        return main_print(in_file);
+      }
+    }
+    fprintf(stderr, "%s crunch|line|print file [line] [column]\n", argv[0]);
     return EXIT_FAILURE;
   }
   in_type   = argv[1];
@@ -817,9 +933,11 @@ main(int argc, const char *argv[])
 
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
-          const char *struct_spec = "struct_specifier";
-          const char *enum_spec   = "enum_specifier";
-          TSNode found = sp_find_parent(highligted, struct_spec, enum_spec);
+          const char *struct_spec   = "struct_specifier";
+          const char *enum_spec     = "enum_specifier";
+          const char *function_spec = "function_definition";
+          TSNode found =
+            sp_find_parent(highligted, struct_spec, enum_spec, function_spec);
 
           if (!ts_node_is_null(found)) {
             if (strcmp(ts_node_type(found), struct_spec) == 0) {
@@ -834,6 +952,15 @@ main(int argc, const char *argv[])
             } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
               if (strcmp(in_type, "crunch") == 0) {
                 res = sp_print_enum(&ctx, found);
+              } else {
+                uint32_t last_line;
+                last_line = sp_find_last_line(found);
+                fprintf(stdout, "%u", last_line);
+                res = EXIT_SUCCESS;
+              }
+            } else if (strcmp(ts_node_type(found), function_spec) == 0) {
+              if (strcmp(in_type, "crunch") == 0) {
+                res = sp_print_function(&ctx, found);
               } else {
                 uint32_t last_line;
                 last_line = sp_find_last_line(found);
