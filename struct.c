@@ -390,7 +390,7 @@ __field_name(struct sp_ts_Context *ctx,
              TSNode subject,
              const char *identifier,
              uint32_t *pointer,
-             bool *array)
+             bool *is_array)
 {
   struct arg_list *result = NULL;
   TSNode tmp;
@@ -430,7 +430,7 @@ __field_name(struct sp_ts_Context *ctx,
 
         field_id = sp_find_direct_child(tmp, identifier);
         if (!ts_node_is_null(field_id)) {
-          *array           = true;
+          *is_array        = true;
           result->variable = sp_struct_value(ctx, field_id);
           /* TODO: '[' XXX ']' */
         }
@@ -452,82 +452,14 @@ __field_name(struct sp_ts_Context *ctx,
   return result;
 }
 
-static struct arg_list *
-__parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+static void
+__format(struct sp_ts_Context *ctx,
+         struct arg_list *result,
+         const char *type,
+         uint32_t pointer,
+         bool is_array)
 {
-  struct arg_list *result = NULL;
-  char *type              = NULL;
-  uint32_t pointer        = 0;
-  bool array              = false;
-  char *identifier        = NULL;
-
-  result = __field_name(ctx, subject, "identifier", &pointer, &array);
-  type   = __field_type(ctx, subject, pointer, result);
-  /* printf("%s: %s\n", ts_node_string(subject), result->variable); */
-  printf("%s: %s\n", type, result->variable);
-
-  return result;
-}
-
-static int
-sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
-{
-  int res = EXIT_SUCCESS;
-  TSNode tmp;
-  char *type_name             = NULL;
-  struct arg_list field_dummy = {0};
-  struct arg_list *field_it   = &field_dummy;
-  /* printf("here!"); */
-  tmp = sp_find_direct_child(subject, "function_declarator");
-  if (!ts_node_is_null(tmp)) {
-    tmp = sp_find_direct_child(tmp, "parameter_list");
-    if (!ts_node_is_null(tmp)) {
-      uint32_t i;
-      struct arg_list *arg = NULL;
-
-      for (i = 0; i < ts_node_child_count(tmp); ++i) {
-        TSNode parameter_decl = ts_node_child(tmp, i);
-        if (strcmp(ts_node_type(parameter_decl), "parameter_declaration") ==
-            0) {
-#if 0
-  uint32_t a;
-  for (a = 0; a < ts_node_child_count(parameter_decl); ++a) {
-    TSNode child = ts_node_child(parameter_decl, a);
-    printf("- %s\n", ts_node_string(child));
-  }
-#endif
-          if ((arg = __parameter_to_arg(ctx, parameter_decl))) {
-            field_it = field_it->next = arg;
-          }
-        }
-      } //for
-    } else {
-      printf("null\n");
-    }
-
-    /* struct type_name { ... }; */
-    /* type_name = sp_struct_value(ctx, tmp); */
-  } else {
-    /* printf("null\n"); */
-  }
-  return res;
-}
-
-static struct arg_list *
-__field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
-{
-  struct arg_list *result = NULL;
-  uint32_t pointer        = 0;
-  char *type              = NULL;
-  bool array              = false;
-
-  /* fprintf(stderr, "%s\n", __func__); */
-
-  /* TODO result->format, result->variable strdup() */
-
-  result = __field_name(ctx, subject, "field_identifier", &pointer, &array);
-  type   = __field_type(ctx, subject, pointer, result);
-
+  (void)ctx;
   /* https://developer.gnome.org/glib/stable/glib-Basic-Types.html */
   /* https://en.cppreference.com/w/cpp/types/integer */
   //TODO strdup
@@ -560,7 +492,7 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
                strcmp(type, "gchar") == 0 || //
                strcmp(type, "gint8") == 0 || //
                strcmp(type, "int8_t") == 0) {
-      if (array) {
+      if (is_array) {
         result->format = "%.*s";
       } else if (pointer) {
         result->format = "%s";
@@ -662,6 +594,134 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
         assert(false);
       }
     }
+  }
+}
+
+static struct arg_list *
+__parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+{
+  struct arg_list *result = NULL;
+  char *type              = NULL;
+  uint32_t pointer        = 0;
+  bool is_array           = false;
+
+  result = __field_name(ctx, subject, "identifier", &pointer, &is_array);
+  if (result) {
+    type = __field_type(ctx, subject, pointer, result);
+    /* printf("%s: %s\n", ts_node_string(subject), result->variable); */
+    printf("%s: %s\n", type, result->variable);
+    __format(ctx, result, type, pointer, is_array);
+  }
+
+  if (result && result->format && result->variable) {
+    result->complete = true;
+  }
+
+  free(type);
+  return result;
+}
+
+static int
+sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
+{
+  int res = EXIT_SUCCESS;
+  TSNode tmp;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
+  size_t complete             = 0;
+  sp_str buf;
+  sp_str_init(&buf, 0);
+
+  /* printf("here!"); */
+  tmp = sp_find_direct_child(subject, "function_declarator");
+  if (!ts_node_is_null(tmp)) {
+    tmp = sp_find_direct_child(tmp, "parameter_list");
+    if (!ts_node_is_null(tmp)) {
+      uint32_t i;
+      struct arg_list *arg = NULL;
+
+      for (i = 0; i < ts_node_child_count(tmp); ++i) {
+        TSNode parameter_decl = ts_node_child(tmp, i);
+        if (strcmp(ts_node_type(parameter_decl), "parameter_declaration") ==
+            0) {
+#if 0
+  uint32_t a;
+  for (a = 0; a < ts_node_child_count(parameter_decl); ++a) {
+    TSNode child = ts_node_child(parameter_decl, a);
+    printf("- %s\n", ts_node_string(child));
+  }
+#endif
+          if ((arg = __parameter_to_arg(ctx, parameter_decl))) {
+            field_it = field_it->next = arg;
+          }
+        }
+      } //for
+    } else {
+      printf("null\n");
+    }
+
+    /* struct type_name { ... }; */
+    /* type_name = sp_struct_value(ctx, tmp); */
+  } else {
+    /* printf("null\n"); */
+  }
+
+  sp_str_append(&buf, "syslog(LOG_ERROR, \"%s:");
+  field_it = field_dummy.next;
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
+                     NULL);
+      ++complete;
+    } else {
+      fprintf(stderr, "Unknown: %s\n",
+              field_it->variable ? field_it->variable : "NULL");
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, "\", __func__");
+  field_it = field_dummy.next;
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_append(&buf, ", ");
+      if (field_it->complex_printf) {
+        /* char buf_tmp[256] = {'\0'}; */
+        assert(field_it->complex_raw);
+        //TODO support "in->{var}".format(map) expansion
+        /*         snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in", */
+        /*                  "in", "in"); */
+        /* sp_str_append(&buf, buf_tmp); */
+        sp_str_append(&buf, field_it->complex_raw);
+      } else {
+        sp_str_appends(&buf, "in->", field_it->variable, NULL);
+      }
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, ");");
+
+  fprintf(stdout, "%s", sp_str_c_str(&buf));
+  sp_str_free(&buf);
+
+  return res;
+}
+
+static struct arg_list *
+__field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+{
+  struct arg_list *result = NULL;
+  uint32_t pointer        = 0;
+  char *type              = NULL;
+  bool is_array           = false;
+
+  /* fprintf(stderr, "%s\n", __func__); */
+
+  /* TODO result->format, result->variable strdup() */
+
+  result = __field_name(ctx, subject, "field_identifier", &pointer, &is_array);
+  if (result) {
+    type = __field_type(ctx, subject, pointer, result);
+    __format(ctx, result, type, pointer, is_array);
   }
 
   if (result && result->format && result->variable) {
