@@ -216,7 +216,8 @@ static char *
 __field_type(struct sp_ts_Context *ctx,
              TSNode subject,
              uint32_t pointer,
-             struct arg_list *result)
+             struct arg_list *result,
+             const char *print_prefix)
 {
   TSNode tmp;
   char *type = NULL;
@@ -276,7 +277,7 @@ __field_type(struct sp_ts_Context *ctx,
                 prefix = "";
               }
               sp_str_appends(&buf_tmp, "sp_debug_", enum_type, "(", prefix,
-                             "in->", result->variable, ")", NULL);
+                             print_prefix, result->variable, ")", NULL);
               result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
               result->complex_printf = true;
 
@@ -327,7 +328,7 @@ __field_type(struct sp_ts_Context *ctx,
 #endif
               enums_it = enum_dummy.next;
               while (enums_it) {
-                sp_str_appends(&buf_tmp, "in->", result->variable,
+                sp_str_appends(&buf_tmp, print_prefix, result->variable,
                                " == ", enums_it->value, " ? \"",
                                enums_it->value, "\" : ", NULL);
                 enums_it = enums_it->next;
@@ -368,7 +369,7 @@ __field_type(struct sp_ts_Context *ctx,
                   prefix = "";
                 }
                 sp_str_appends(&buf_tmp, "sp_debug_", struct_type, "(", prefix,
-                               "in->", result->variable, ")", NULL);
+                               print_prefix, result->variable, ")", NULL);
                 result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
                 result->complex_printf = true;
 
@@ -458,7 +459,8 @@ __format(struct sp_ts_Context *ctx,
          struct arg_list *result,
          const char *type,
          uint32_t pointer,
-         bool is_array)
+         bool is_array,
+         const char *print_prefix)
 {
   (void)ctx;
   /* https://developer.gnome.org/glib/stable/glib-Basic-Types.html */
@@ -475,10 +477,10 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s";
 
       if (pointer) {
-        sp_str_appends(&buf_tmp, "!in->", result->variable,
-                       " ? \"NULL\" : *in->", result->variable, NULL);
+        sp_str_appends(&buf_tmp, "!", print_prefix, result->variable,
+                       " ? \"NULL\" : *", print_prefix, result->variable, NULL);
       } else {
-        sp_str_appends(&buf_tmp, "in->", result->variable, NULL);
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, NULL);
       }
       sp_str_appends(&buf_tmp, " ? \"TRUE\" : \"FALSE\"", NULL);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -585,7 +587,7 @@ __format(struct sp_ts_Context *ctx,
         if (pointer) {
           prefix = "";
         }
-        sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, "in->",
+        sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, print_prefix,
                        result->variable, ")", NULL);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
@@ -608,9 +610,9 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 
   result = __field_name(ctx, subject, "identifier", &pointer, &is_array);
   if (result) {
-    type = __field_type(ctx, subject, pointer, result);
+    type = __field_type(ctx, subject, pointer, result, "");
     /* printf("%s: %s\n", type, result->variable); */
-    __format(ctx, result, type, pointer, is_array);
+    __format(ctx, result, type, pointer, is_array, "");
   }
 
   if (result && result->format && result->variable) {
@@ -660,13 +662,11 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
       printf("null\n");
     }
 
-    /* struct type_name { ... }; */
-    /* type_name = sp_struct_value(ctx, tmp); */
   } else {
     /* printf("null\n"); */
   }
 
-  sp_str_append(&buf, "syslog(LOG_ERR, \"%s:");
+  sp_str_append(&buf, "  syslog(LOG_ERR, \"%s:");
   field_it = field_dummy.next;
   while (field_it) {
     if (field_it->complete) {
@@ -685,15 +685,10 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     if (field_it->complete) {
       sp_str_append(&buf, ", ");
       if (field_it->complex_printf) {
-        /* char buf_tmp[256] = {'\0'}; */
         assert(field_it->complex_raw);
-        //TODO support "in->{var}".format(map) expansion
-        /*         snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in", */
-        /*                  "in", "in"); */
-        /* sp_str_append(&buf, buf_tmp); */
         sp_str_append(&buf, field_it->complex_raw);
       } else {
-        sp_str_appends(&buf, "in->", field_it->variable, NULL);
+        sp_str_append(&buf, field_it->variable);
       }
     }
     field_it = field_it->next;
@@ -720,8 +715,8 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 
   result = __field_name(ctx, subject, "field_identifier", &pointer, &is_array);
   if (result) {
-    type = __field_type(ctx, subject, pointer, result);
-    __format(ctx, result, type, pointer, is_array);
+    type = __field_type(ctx, subject, pointer, result, "in->");
+    __format(ctx, result, type, pointer, is_array, "in->");
   }
 
   if (result && result->format && result->variable) {
