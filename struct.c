@@ -183,6 +183,8 @@ struct arg_list {
   bool complete;
   char *complex_raw;
   bool complex_printf;
+  uint32_t pointer;
+  bool is_array;
   struct arg_list *next;
 };
 
@@ -215,7 +217,6 @@ __rec_search(struct sp_ts_Context *ctx,
 static char *
 __field_type(struct sp_ts_Context *ctx,
              TSNode subject,
-             uint32_t pointer,
              struct arg_list *result,
              const char *print_prefix)
 {
@@ -265,7 +266,7 @@ __field_type(struct sp_ts_Context *ctx,
           type_id = sp_find_direct_child_by_type(tmp, "type_identifier");
           if (!ts_node_is_null(type_id)) {
             result->format = "%s";
-            if (pointer > 1) {
+            if (result->pointer > 1) {
             } else {
               char *enum_type    = sp_struct_value(ctx, type_id);
               const char *prefix = "&";
@@ -273,7 +274,7 @@ __field_type(struct sp_ts_Context *ctx,
               sp_str_init(&buf_tmp, 0);
 
               /* Example: enum type_t */
-              if (pointer) {
+              if (result->pointer) {
                 prefix = "";
               }
               sp_str_appends(&buf_tmp, "sp_debug_", enum_type, "(", prefix,
@@ -357,7 +358,7 @@ __field_type(struct sp_ts_Context *ctx,
             tmp = sp_find_direct_child_by_type(tmp, "type_identifier");
             if (!ts_node_is_null(tmp)) {
               result->format = "%s";
-              if (pointer > 1) {
+              if (result->pointer > 1) {
               } else {
                 char *struct_type  = sp_struct_value(ctx, tmp);
                 const char *prefix = "&";
@@ -365,7 +366,7 @@ __field_type(struct sp_ts_Context *ctx,
                 sp_str_init(&buf_tmp, 0);
 
                 /* Example: struct type_t */
-                if (pointer) {
+                if (result->pointer) {
                   prefix = "";
                 }
                 sp_str_appends(&buf_tmp, "sp_debug_", struct_type, "(", prefix,
@@ -388,11 +389,7 @@ __field_type(struct sp_ts_Context *ctx,
 }
 
 static struct arg_list *
-__field_name(struct sp_ts_Context *ctx,
-             TSNode subject,
-             const char *identifier,
-             uint32_t *pointer,
-             bool *is_array)
+__field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
 {
   struct arg_list *result = NULL;
   TSNode tmp;
@@ -404,7 +401,7 @@ __field_name(struct sp_ts_Context *ctx,
   } else {
     tmp = sp_find_direct_child_by_type(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
-      tmp = __rec_search(ctx, tmp, identifier, 1, pointer);
+      tmp = __rec_search(ctx, tmp, identifier, 1, &result->pointer);
       if (!ts_node_is_null(tmp)) {
         result->variable = sp_struct_value(ctx, tmp);
       }
@@ -432,7 +429,7 @@ __field_name(struct sp_ts_Context *ctx,
 
         field_id = sp_find_direct_child_by_type(tmp, identifier);
         if (!ts_node_is_null(field_id)) {
-          *is_array        = true;
+          result->is_array = true;
           result->variable = sp_struct_value(ctx, field_id);
           /* TODO: '[' XXX ']' */
         }
@@ -458,8 +455,6 @@ static void
 __format(struct sp_ts_Context *ctx,
          struct arg_list *result,
          const char *type,
-         uint32_t pointer,
-         bool is_array,
          const char *print_prefix)
 {
   (void)ctx;
@@ -467,7 +462,7 @@ __format(struct sp_ts_Context *ctx,
   /* https://en.cppreference.com/w/cpp/types/integer */
   //TODO strdup
   if (type) {
-    if (pointer > 1) {
+    if (result->pointer > 1) {
       result->format = "%p";
     } else if (strcmp(type, "gboolean") == 0 || //
                strcmp(type, "bool") == 0 || //
@@ -476,7 +471,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
 
-      if (pointer) {
+      if (result->pointer) {
         sp_str_appends(&buf_tmp, "!", print_prefix, result->variable,
                        " ? \"NULL\" : *", print_prefix, result->variable, NULL);
       } else {
@@ -488,16 +483,16 @@ __format(struct sp_ts_Context *ctx,
 
       sp_str_free(&buf_tmp);
     } else if (strcmp(type, "void") == 0) {
-      if (pointer) {
+      if (result->pointer) {
         result->format = "%p";
       }
     } else if (strcmp(type, "char") == 0 || //
                strcmp(type, "gchar") == 0 || //
                strcmp(type, "gint8") == 0 || //
                strcmp(type, "int8_t") == 0) {
-      if (is_array) {
+      if (result->is_array) {
         result->format = "%.*s";
-      } else if (pointer) {
+      } else if (result->pointer) {
         result->format = "%s";
       } else {
         result->format = "%c";
@@ -584,7 +579,7 @@ __format(struct sp_ts_Context *ctx,
 
         /* Example: type_t */
         result->format = "%s";
-        if (pointer) {
+        if (result->pointer) {
           prefix = "";
         }
         sp_str_appends(&buf_tmp, "sp_debug_", type, "(", prefix, print_prefix,
@@ -605,14 +600,12 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
   char *type              = NULL;
-  uint32_t pointer        = 0;
-  bool is_array           = false;
 
-  result = __field_name(ctx, subject, "identifier", &pointer, &is_array);
+  result = __field_name(ctx, subject, "identifier");
   if (result) {
-    type = __field_type(ctx, subject, pointer, result, "");
+    type = __field_type(ctx, subject, result, "");
     /* printf("%s: %s\n", type, result->variable); */
-    __format(ctx, result, type, pointer, is_array, "");
+    __format(ctx, result, type, "");
   }
 
   if (result && result->format && result->variable) {
@@ -705,18 +698,16 @@ static struct arg_list *
 __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
-  uint32_t pointer        = 0;
   char *type              = NULL;
-  bool is_array           = false;
 
   /* fprintf(stderr, "%s\n", __func__); */
 
   /* TODO result->format, result->variable strdup() */
 
-  result = __field_name(ctx, subject, "field_identifier", &pointer, &is_array);
+  result = __field_name(ctx, subject, "field_identifier");
   if (result) {
-    type = __field_type(ctx, subject, pointer, result, "in->");
-    __format(ctx, result, type, pointer, is_array, "in->");
+    type = __field_type(ctx, subject, result, "in->");
+    __format(ctx, result, type, "in->");
   }
 
   if (result && result->format && result->variable) {
