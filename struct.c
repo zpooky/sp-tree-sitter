@@ -39,8 +39,9 @@ sp_find_parent(TSNode subject,
   }
   return result;
 }
+
 static TSNode
-sp_find_direct_child(TSNode subject, const char *needle)
+sp_find_direct_child_by_type(TSNode subject, const char *needle)
 {
   TSNode empty = {0};
   uint32_t i;
@@ -88,7 +89,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
 
   /* fprintf(stderr, "%s\n", __func__); */
 
-  tmp = sp_find_direct_child(subject, "type_identifier");
+  tmp = sp_find_direct_child_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
     /* struct type_name { ... }; */
     type_name = sp_struct_value(ctx, tmp);
@@ -96,7 +97,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     TSNode parent = ts_node_parent(subject);
     if (!ts_node_is_null(parent)) {
       if (strcmp(ts_node_type(parent), "type_definition") == 0) {
-        tmp = sp_find_direct_child(parent, "type_identifier");
+        tmp = sp_find_direct_child_by_type(parent, "type_identifier");
         if (!ts_node_is_null(tmp)) {
           /* typedef struct * { ... } type_name; */
           type_name_t = true;
@@ -106,7 +107,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     }
   }
 
-  tmp = sp_find_direct_child(subject, "enumerator_list");
+  tmp = sp_find_direct_child_by_type(subject, "enumerator_list");
   if (!ts_node_is_null(tmp)) {
     uint32_t i;
     for (i = 0; i < ts_node_child_count(tmp); ++i) {
@@ -220,12 +221,12 @@ __field_type(struct sp_ts_Context *ctx,
   TSNode tmp;
   char *type = NULL;
 
-  tmp = sp_find_direct_child(subject, "primitive_type");
+  tmp = sp_find_direct_child_by_type(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
     /* $primitive_type $field_identifier; */
     type = sp_struct_value(ctx, tmp);
   } else {
-    tmp = sp_find_direct_child(subject, "sized_type_specifier");
+    tmp = sp_find_direct_child_by_type(subject, "sized_type_specifier");
     if (!ts_node_is_null(tmp)) {
       sp_str tmp_str;
       uint32_t i;
@@ -247,7 +248,7 @@ __field_type(struct sp_ts_Context *ctx,
       type = strdup(sp_str_c_str(&tmp_str));
       sp_str_free(&tmp_str);
     } else {
-      tmp = sp_find_direct_child(subject, "type_identifier");
+      tmp = sp_find_direct_child_by_type(subject, "type_identifier");
       if (!ts_node_is_null(tmp)) {
         /* $type_identifier $field_identifier;
          * Example:
@@ -256,11 +257,11 @@ __field_type(struct sp_ts_Context *ctx,
          */
         type = sp_struct_value(ctx, tmp);
       } else {
-        tmp = sp_find_direct_child(subject, "enum_specifier");
+        tmp = sp_find_direct_child_by_type(subject, "enum_specifier");
         if (!ts_node_is_null(tmp)) {
           TSNode type_id;
 
-          type_id = sp_find_direct_child(tmp, "type_identifier");
+          type_id = sp_find_direct_child_by_type(tmp, "type_identifier");
           if (!ts_node_is_null(type_id)) {
             result->format = "%s";
             if (pointer > 1) {
@@ -287,7 +288,7 @@ __field_type(struct sp_ts_Context *ctx,
           } else {
             TSNode enum_list;
 
-            enum_list = sp_find_direct_child(tmp, "enumerator_list");
+            enum_list = sp_find_direct_child_by_type(tmp, "enumerator_list");
             if (!ts_node_is_null(enum_list)) {
               struct sp_str_list enum_dummy = {0};
               struct sp_str_list *enums_it  = &enum_dummy;
@@ -349,10 +350,10 @@ __field_type(struct sp_ts_Context *ctx,
             }
           }
         } else {
-          tmp = sp_find_direct_child(subject, "struct_specifier");
+          tmp = sp_find_direct_child_by_type(subject, "struct_specifier");
           if (!ts_node_is_null(tmp)) {
 
-            tmp = sp_find_direct_child(tmp, "type_identifier");
+            tmp = sp_find_direct_child_by_type(tmp, "type_identifier");
             if (!ts_node_is_null(tmp)) {
               result->format = "%s";
               if (pointer > 1) {
@@ -396,18 +397,18 @@ __field_name(struct sp_ts_Context *ctx,
   TSNode tmp;
   result = calloc(1, sizeof(*result));
 
-  tmp = sp_find_direct_child(subject, identifier);
+  tmp = sp_find_direct_child_by_type(subject, identifier);
   if (!ts_node_is_null(tmp)) {
     result->variable = sp_struct_value(ctx, tmp);
   } else {
-    tmp = sp_find_direct_child(subject, "pointer_declarator");
+    tmp = sp_find_direct_child_by_type(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
       tmp = __rec_search(ctx, tmp, identifier, 1, pointer);
       if (!ts_node_is_null(tmp)) {
         result->variable = sp_struct_value(ctx, tmp);
       }
     } else {
-      tmp = sp_find_direct_child(subject, "array_declarator");
+      tmp = sp_find_direct_child_by_type(subject, "array_declarator");
       if (!ts_node_is_null(tmp)) {
         uint32_t i;
         TSNode field_id;
@@ -428,7 +429,7 @@ __field_name(struct sp_ts_Context *ctx,
           }
         } //for
 
-        field_id = sp_find_direct_child(tmp, identifier);
+        field_id = sp_find_direct_child_by_type(tmp, identifier);
         if (!ts_node_is_null(field_id)) {
           *is_array        = true;
           result->variable = sp_struct_value(ctx, field_id);
@@ -608,8 +609,7 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   result = __field_name(ctx, subject, "identifier", &pointer, &is_array);
   if (result) {
     type = __field_type(ctx, subject, pointer, result);
-    /* printf("%s: %s\n", ts_node_string(subject), result->variable); */
-    printf("%s: %s\n", type, result->variable);
+    /* printf("%s: %s\n", type, result->variable); */
     __format(ctx, result, type, pointer, is_array);
   }
 
@@ -633,9 +633,9 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_init(&buf, 0);
 
   /* printf("here!"); */
-  tmp = sp_find_direct_child(subject, "function_declarator");
+  tmp = sp_find_direct_child_by_type(subject, "function_declarator");
   if (!ts_node_is_null(tmp)) {
-    tmp = sp_find_direct_child(tmp, "parameter_list");
+    tmp = sp_find_direct_child_by_type(tmp, "parameter_list");
     if (!ts_node_is_null(tmp)) {
       uint32_t i;
       struct arg_list *arg = NULL;
@@ -666,7 +666,7 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     /* printf("null\n"); */
   }
 
-  sp_str_append(&buf, "syslog(LOG_ERROR, \"%s:");
+  sp_str_append(&buf, "syslog(LOG_ERR, \"%s:");
   field_it = field_dummy.next;
   while (field_it) {
     if (field_it->complete) {
@@ -767,7 +767,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   free(p);
 #endif
 
-  tmp = sp_find_direct_child(subject, "type_identifier");
+  tmp = sp_find_direct_child_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
     /* struct type_name { ... }; */
     type_name = sp_struct_value(ctx, tmp);
@@ -775,7 +775,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     TSNode parent = ts_node_parent(subject);
     if (!ts_node_is_null(parent)) {
       if (strcmp(ts_node_type(parent), "type_definition") == 0) {
-        tmp = sp_find_direct_child(parent, "type_identifier");
+        tmp = sp_find_direct_child_by_type(parent, "type_identifier");
         if (!ts_node_is_null(tmp)) {
           /* typedef struct * { ... } type_name; */
           type_name_t = true;
@@ -785,7 +785,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     }
   }
 
-  tmp = sp_find_direct_child(subject, "field_declaration_list");
+  tmp = sp_find_direct_child_by_type(subject, "field_declaration_list");
   if (!ts_node_is_null(tmp)) {
     for (i = 0; i < ts_node_child_count(tmp); ++i) {
       TSNode field = ts_node_child(tmp, i);
@@ -884,6 +884,23 @@ sp_find_last_line(TSNode subject)
   return p.row + 1;
 }
 
+static uint32_t
+sp_find_open_bracket(TSNode subject)
+{
+  TSPoint p;
+  TSNode body;
+
+  body = sp_find_direct_child_by_type(subject, "compound_statement");
+  if (!ts_node_is_null(body)) {
+    p = ts_node_start_point(body);
+  } else {
+    p = ts_node_end_point(subject);
+  }
+  return p.row + 1;
+  /*             for (i = 0; i < ts_node_child_count(tmp); ++i) { */
+  /*             } */
+}
+
 static int
 main_print(const char *in_file)
 {
@@ -974,7 +991,7 @@ main(int argc, const char *argv[])
           char *p = ts_node_string(root);
           fprintf(stdout, "%s\n", p);
           free(p);
-          TSNode tmp = sp_find_direct_child(root, "declaration");
+          TSNode tmp = sp_find_direct_child_by_type(root, "declaration");
           if (!ts_node_is_null(tmp)) {
             for (i = 0; i < ts_node_child_count(tmp); ++i) {
               uint32_t s   = ts_node_start_byte(ts_node_child(tmp, i));
@@ -1004,27 +1021,28 @@ main(int argc, const char *argv[])
               if (strcmp(in_type, "crunch") == 0) {
                 res = sp_print_struct(&ctx, found);
               } else {
-                uint32_t last_line;
-                last_line = sp_find_last_line(found);
-                fprintf(stdout, "%u", last_line);
+                uint32_t line;
+                line = sp_find_last_line(found);
+                fprintf(stdout, "%u", line);
                 res = EXIT_SUCCESS;
               }
             } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
               if (strcmp(in_type, "crunch") == 0) {
                 res = sp_print_enum(&ctx, found);
               } else {
-                uint32_t last_line;
-                last_line = sp_find_last_line(found);
-                fprintf(stdout, "%u", last_line);
+                uint32_t line;
+                line = sp_find_last_line(found);
+                fprintf(stdout, "%u", line);
                 res = EXIT_SUCCESS;
               }
             } else if (strcmp(ts_node_type(found), function_spec) == 0) {
               if (strcmp(in_type, "crunch") == 0) {
+                /* printf("%s\n", ts_node_string(found)); */
                 res = sp_print_function(&ctx, found);
               } else {
-                uint32_t last_line;
-                last_line = sp_find_last_line(found);
-                fprintf(stdout, "%u", last_line);
+                uint32_t line;
+                line = sp_find_open_bracket(found);
+                fprintf(stdout, "%u", line);
                 res = EXIT_SUCCESS;
               }
             }
