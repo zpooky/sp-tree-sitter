@@ -295,6 +295,38 @@ sp_str_prefix_cmp_str(const sp_str *self, const sp_str *prefix)
 }
 
 //==============================
+static int
+sp_str_postfix_cmp_len(const sp_str *self, const char *postfix, size_t plen)
+{
+  size_t slen = sp_str_length(self);
+  if (plen > slen) {
+    return 1;
+  }
+  slen -= plen;
+
+  return strncmp(sp_str_c_str(self) + slen, postfix, plen);
+}
+
+int
+sp_str_postfix_cmp(const sp_str *self, const char *postfix)
+{
+  assert(self);
+  assert(postfix);
+
+  return sp_str_postfix_cmp_len(self, postfix, strlen(postfix));
+}
+
+int
+sp_str_postfix_cmp_str(const sp_str *self, const sp_str *postfix)
+{
+  assert(self);
+  assert(postfix);
+
+  return sp_str_postfix_cmp_len(self, sp_str_c_str(postfix),
+                                sp_str_length(postfix));
+}
+
+//==============================
 int
 sp_str_clear(sp_str *self)
 {

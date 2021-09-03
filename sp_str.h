@@ -91,6 +91,13 @@ sp_str_prefix_cmp_str(const sp_str *, const sp_str *);
 
 //==============================
 int
+sp_str_postfix_cmp(const sp_str *, const char *);
+
+int
+sp_str_postfix_cmp_str(const sp_str *, const sp_str *);
+
+//==============================
+int
 sp_str_clear(sp_str *);
 
 //==============================

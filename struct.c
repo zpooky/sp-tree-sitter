@@ -20,6 +20,32 @@ struct sp_ts_Context {
 extern const TSLanguage *
 tree_sitter_c(void);
 
+extern const TSLanguage *
+tree_sitter_cpp(void);
+
+static bool
+is_c_file(const char *filename)
+{
+  struct sp_str str;
+  bool result;
+  sp_str_init_cstr(&str, filename);
+  result = sp_str_postfix_cmp(&str, ".c") == 0;
+  sp_str_free(&str);
+  return result;
+}
+
+static bool
+is_cpp_file(const char *filename)
+{
+  struct sp_str str;
+  bool result;
+  sp_str_init_cstr(&str, filename);
+  result = sp_str_postfix_cmp(&str, ".cc") == 0 ||
+           sp_str_postfix_cmp(&str, ".cpp") == 0;
+  sp_str_free(&str);
+  return result;
+}
+
 static TSNode
 sp_find_parent(TSNode subject,
                const char *needle0,
@@ -511,6 +537,19 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         result->format = "%p";
       }
+    } else if (strcmp(type, "string") ==
+               0) { //TODO this we require to have a c++ parser
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      /* Example: string */
+      result->format = "%s";
+      sp_str_appends(&buf_tmp, print_prefix, result->variable, ".c_str()",
+                     NULL);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+
+      sp_str_free(&buf_tmp);
     } else if (strcmp(type, "char") == 0 || //
                strcmp(type, "gchar") == 0 || //
                strcmp(type, "gint8") == 0 || //
@@ -703,7 +742,7 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     }
     field_it = field_it->next;
   } //while
-  sp_str_append(&buf, "\", __func__");
+  sp_str_append(&buf, "\\n\", __func__");
   field_it = field_dummy.next;
   while (field_it) {
     if (field_it->complete) {
@@ -985,9 +1024,16 @@ main(int argc, const char *argv[])
   }
 
   if (mmap_file(in_file, &ctx.file) == 0) {
-    TSParser *parser       = ts_parser_new();
-    const TSLanguage *lang = tree_sitter_c();
-    ts_parser_set_language(parser, lang);
+    TSParser *parser          = ts_parser_new();
+    const TSLanguage *clang   = tree_sitter_c();
+    const TSLanguage *cpplang = tree_sitter_cpp();
+    if (is_cpp_file(in_file)) {
+      ts_parser_set_language(parser, cpplang);
+    } else if (is_c_file(in_file)) {
+      ts_parser_set_language(parser, clang);
+    } else {
+      ts_parser_set_language(parser, clang);
+    }
 
     {
       TSNode root;

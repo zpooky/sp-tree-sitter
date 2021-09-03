@@ -1,6 +1,6 @@
 # https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 PARSE_SOURCES = main.c
-STRUCT_SOURCES = struct.c
+STRUCT_SOURCES = struct.c lang/tree-sitter-cpp/src/parser.c lang/tree-sitter-cpp/src/scanner.cc
 SHARED_SOURCES = shared.c sp_util.c sp_str.c lang/tree-sitter-c/src/parser.c
 # SOURCES = $(shell find . -iname "*.c" | grep -v '.ccls-cache' | xargs)
 # SOURCES = $(wildcard *.c)
@@ -8,9 +8,9 @@ SHARED_SOURCES = shared.c sp_util.c sp_str.c lang/tree-sitter-c/src/parser.c
 # BUILD_DIR = .
 # BUILD_DIR = build
 # SHARED_OBJECTS = $(SOURCES:%.c=$(BUILD_DIR)/%.o)
-PARSE_OBJECTS = $(PARSE_SOURCES:.c=.o)
-STRUCT_OBJECTS = $(STRUCT_SOURCES:.c=.o)
-SHARED_OBJECTS = $(SHARED_SOURCES:.c=.o)
+PARSE_OBJECTS = $(PARSE_SOURCES:%=%.o)
+STRUCT_OBJECTS = $(STRUCT_SOURCES:%=%.o)
+SHARED_OBJECTS = $(SHARED_SOURCES:%=%.o)
 ALL_OBJECTS = $(PARSE_OBJECTS) $(STRUCT_OBJECTS) $(SHARED_OBJECTS)
 
 DEPENDS = $(ALL_OBJECTS:.o=.d)
@@ -30,11 +30,11 @@ STRUCT = sp_struct_to_string
 # default
 # CC = gcc
 # CC = clang
-CC = musl-gcc -static
+# CC = musl-gcc -static
 
 # https://github.com/lefticus/cppbestpractices/blob/master/02-Use_the_Tools_Available.md#gcc%E2%80%94clang
 CFLAGS += -std=gnu11
-CFLAGS += -Itree-sitter/lib/include
+CFLAGS += -Itree-sitter/lib/include -Ilang/tree-sitter-cpp/src
 # CFLAGS += $(shell pkg-config --cflags libsystemd glib-2.0)
 CFLAGS += -Wall -Wextra -Wpointer-arith -Wconversion -Wshadow
 CFLAGS += -Wnull-dereference -Wdouble-promotion
@@ -43,13 +43,15 @@ CFLAGS += -Wformat=2 -Wformat-security -Wmissing-include-dirs
 CFLAGS += -Wstrict-prototypes
 CFLAGS += -ggdb -O0
 
+CXXFLAGS = $(CFLAGS)
+
 
 ifeq ($(CC), gcc)
 CFLAGS += -Wpedantic -Wduplicated-cond -Wlogical-op
 endif
 
 ifeq ($(CC), clang)
-CFLAGS += -Wformat -Wformat-signedness
+CFLAGS += -Wformat
 endif
 
 .PHONEY: all
@@ -62,11 +64,17 @@ $(PROG): $(PARSE_OBJECTS) $(SHARED_OBJECTS) tree-sitter/libtree-sitter.a
 	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 $(STRUCT): $(STRUCT_OBJECTS) $(SHARED_OBJECTS) tree-sitter/libtree-sitter.a
-	$(CC) $(LDFLAGS) $^ $(LDLIBS) -o $@
+	$(CXX) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 -include $(DEPENDS)
-%.o: %.c
+%.c.o: %.c
 	$(CC) $(CFLAGS) -MMD -c $< -o $@
+
+%.cc.o: %.cc
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
+
+%.cpp.o: %.cpp
+	$(CXX) $(CXXFLAGS) -MMD -c $< -o $@
 
 .PHONEY: clean
 clean:
