@@ -537,6 +537,14 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         result->format = "%p";
       }
+    } else if (strcmp(type, "gpointer") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%p";
+      sp_str_appends(&buf_tmp, "(void*)",print_prefix, result->variable, NULL);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(type, "string") ==
                0) { //TODO this we require to have a c++ parser
       sp_str buf_tmp;
@@ -611,29 +619,29 @@ __format(struct sp_ts_Context *ctx,
     } else if (strcmp(type, "off_t") == 0) {
       __format_numeric(result, print_prefix, "%jd");
     } else if (strcmp(type, "goffset") == 0) {
-      result->format = "\"%\"G_GOFFSET_FORMAT";
+      result->format = "%\"G_GOFFSET_FORMAT\"";
     } else if (strcmp(type, "size_t") == 0) {
       __format_numeric(result, print_prefix, "%zu");
     } else if (strcmp(type, "gsize") == 0) {
-      result->format = "\"%\"G_GSIZE_FORMAT";
+      result->format = "%\"G_GSIZE_FORMAT\"";
     } else if (strcmp(type, "ssize_t") == 0) {
       __format_numeric(result, print_prefix, "%zd");
     } else if (strcmp(type, "gssize") == 0) {
-      result->format = "\"%\"G_GSSIZE_FORMAT";
+      result->format = "%\"G_GSSIZE_FORMAT\"";
     } else if (strcmp(type, "int64_t") == 0) {
-      result->format = "\"%\"PRId64";
+      result->format = "%\"PRId64\"";
     } else if (strcmp(type, "uint64_t") == 0) {
-      result->format = "\"%\"PRIu64";
+      result->format = "%\"PRIu64\"";
     } else if (strcmp(type, "guint64") == 0) {
-      result->format = "\"%\"G_GUINT64_FORMAT";
+      result->format = "%\"G_GUINT64_FORMAT\"";
     } else if (strcmp(type, "uintptr_t") == 0) {
-      result->format = "\"%\"PRIuPTR";
+      result->format = "%\"PRIuPTR\"";
     } else if (strcmp(type, "guintptr") == 0) {
-      result->format = "\"%\"G_GUINTPTR_FORMAT";
+      result->format = "%\"G_GUINTPTR_FORMAT\"";
     } else if (strcmp(type, "iintptr_t") == 0) {
-      result->format = "\"%\"PRIiPTR";
+      result->format = "%\"PRIiPTR\"";
     } else if (strcmp(type, "gintptr") == 0) {
-      result->format = "\"%\"G_GINTPTR_FORMAT";
+      result->format = "%\"G_GINTPTR_FORMAT\"";
     } else if (strcmp(type, "float") == 0 || //
                strcmp(type, "gfloat") == 0 || //
                strcmp(type, "double") == 0 || //
@@ -1126,3 +1134,9 @@ main(int argc, const char *argv[])
 
   return res;
 }
+
+/* TODO support josn style output for line and crunch */
+//TODO print all local variables visible at cursor position (leader+l)
+//TODO print indiciation of in which if case we are located in
+//TODO print idincation before return
+//TODO maybe if there is no struct prefix we print %p (example: struct IOPort vs IOPort)
