@@ -210,7 +210,10 @@ struct arg_list {
   char *complex_raw;
   bool complex_printf;
   uint32_t pointer;
+
   bool is_array;
+  char *variable_array_length;
+
   struct arg_list *next;
 };
 
@@ -436,18 +439,14 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
       if (!ts_node_is_null(tmp)) {
         uint32_t i;
         TSNode field_id;
-        char *array_len  = NULL;
         bool start_found = false;
-        sp_str buf_tmp;
-
-        sp_str_init(&buf_tmp, 0);
 
         for (i = 0; i < ts_node_child_count(tmp); ++i) {
           TSNode child = ts_node_child(tmp, i);
           if (start_found) {
-            free(array_len);
-            array_len   = sp_struct_value(ctx, child);
-            start_found = false;
+            free(result->variable_array_length);
+            result->variable_array_length = sp_struct_value(ctx, child);
+            start_found                   = false;
           } else if (strcmp(ts_node_type(child), "[") == 0) {
             start_found = true;
           }
@@ -459,17 +458,9 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
           result->variable = sp_struct_value(ctx, field_id);
           /* TODO: '[' XXX ']' */
         }
-        if (!array_len) {
-          array_len = strdup("0");
+        if (!result->variable_array_length) {
+          result->variable_array_length = strdup("0");
         }
-
-        /* char $field_identifier[$array_len] */
-        sp_str_appends(&buf_tmp, "(int)", array_len, ", ", result->variable,
-                       NULL);
-        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-        result->complex_printf = true;
-
-        sp_str_free(&buf_tmp);
       }
     }
   }
@@ -541,7 +532,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       result->format = "%p";
-      sp_str_appends(&buf_tmp, "(void*)",print_prefix, result->variable, NULL);
+      sp_str_appends(&buf_tmp, "(void*)", print_prefix, result->variable, NULL);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
@@ -564,7 +555,17 @@ __format(struct sp_ts_Context *ctx,
                strcmp(type, "int8") == 0 || //
                strcmp(type, "int8_t") == 0) {
       if (result->is_array) {
+        sp_str buf_tmp;
         result->format = "%.*s";
+
+        sp_str_init(&buf_tmp, 0);
+        /* char $field_identifier[$array_len] */
+        sp_str_appends(&buf_tmp, "(int)", result->variable_array_length, ", ",
+                       print_prefix, result->variable, NULL);
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
+
+        sp_str_free(&buf_tmp);
       } else if (result->pointer) {
         result->format = "%s";
       } else {
@@ -1135,8 +1136,11 @@ main(int argc, const char *argv[])
   return res;
 }
 
-/* TODO support josn style output for line and crunch */
+/* TODO support complex (json) output for line and crunch */
 //TODO print all local variables visible at cursor position (leader+l)
 //TODO print indiciation of in which if case we are located in
 //TODO print idincation before return
 //TODO maybe if there is no struct prefix we print %p (example: struct IOPort vs IOPort)
+//
+//TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
+// example: NOTE: assumes xxx and l_xxx is related
