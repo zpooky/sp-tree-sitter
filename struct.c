@@ -41,7 +41,9 @@ is_cpp_file(const char *filename)
   bool result;
   sp_str_init_cstr(&str, filename);
   result = sp_str_postfix_cmp(&str, ".cc") == 0 ||
-           sp_str_postfix_cmp(&str, ".cpp") == 0;
+           sp_str_postfix_cmp(&str, ".cpp") == 0 ||
+           sp_str_postfix_cmp(&str, ".hpp") == 0 ||
+           sp_str_postfix_cmp(&str, ".hh") == 0;
   sp_str_free(&str);
   return result;
 }
@@ -50,7 +52,8 @@ static TSNode
 sp_find_parent(TSNode subject,
                const char *needle0,
                const char *needle1,
-               const char *needle2)
+               const char *needle2,
+               const char *needle3)
 {
   TSNode it     = subject;
   TSNode result = {0};
@@ -58,7 +61,8 @@ sp_find_parent(TSNode subject,
   while (!ts_node_is_null(it)) {
     if (strcmp(ts_node_type(it), needle0) == 0 ||
         strcmp(ts_node_type(it), needle1) == 0 ||
-        strcmp(ts_node_type(it), needle2) == 0) {
+        strcmp(ts_node_type(it), needle2) == 0 ||
+        strcmp(ts_node_type(it), needle3) == 0) {
       result = it;
     }
     it = ts_node_parent(it);
@@ -543,8 +547,12 @@ __format(struct sp_ts_Context *ctx,
 
       /* Example: string */
       result->format = "%s";
-      sp_str_appends(&buf_tmp, print_prefix, result->variable, ".c_str()",
-                     NULL);
+      sp_str_appends(&buf_tmp, print_prefix, result->variable, NULL);
+      if (result->pointer) {
+        sp_str_append(&buf_tmp, "->c_str()");
+      } else {
+        sp_str_append(&buf_tmp, ".c_str()");
+      }
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
 
@@ -571,6 +579,32 @@ __format(struct sp_ts_Context *ctx,
       } else {
         result->format = "%c";
       }
+    } else if (strcmp(type, "time_t") == 0) {
+      sp_str buf_tmp;
+      result->format = "%s(%jd)";
+
+      sp_str_init(&buf_tmp, 0);
+      sp_str_appends(&buf_tmp, "asctime(gmtime(&", print_prefix,
+                     result->variable, ")), (intmax_t)", print_prefix,
+                     result->variable, NULL);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(type, "IMFIX") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%f";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? IMFIX2F(*",
+                       print_prefix, result->variable, ") : 0", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "IMFIX2F(", print_prefix, result->variable,
+                       ")", NULL);
+      }
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(type, "uchar") == 0 || //
                strcmp(type, "guchar") == 0 || //
                strcmp(type, "guint8") == 0 || //
@@ -783,8 +817,8 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 
   /* TODO result->format, result->variable strdup() */
 
-  result = __field_name(ctx, subject, "field_identifier");
-  if (result) {
+  if ((result = __field_name(ctx, subject, "field_identifier"))) {
+    /* fprintf(stderr,"%s\n", result->variable); */
     type = __field_type(ctx, subject, result, "in->");
     __format(ctx, result, type, "in->");
   }
@@ -1083,11 +1117,11 @@ main(int argc, const char *argv[])
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
           const char *struct_spec   = "struct_specifier";
+          const char *class_spec    = "class_specifier";
           const char *enum_spec     = "enum_specifier";
           const char *function_spec = "function_definition";
-          TSNode found =
-            sp_find_parent(highligted, struct_spec, enum_spec, function_spec);
-
+          TSNode found = sp_find_parent(highligted, struct_spec, enum_spec,
+                                        function_spec, class_spec);
           if (!ts_node_is_null(found)) {
             if (strcmp(ts_node_type(found), struct_spec) == 0) {
               if (strcmp(in_type, "crunch") == 0) {
@@ -1098,7 +1132,20 @@ main(int argc, const char *argv[])
                 fprintf(stdout, "%u", line);
                 res = EXIT_SUCCESS;
               }
-            } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+            }
+#if 1
+            else if (strcmp(ts_node_type(found), class_spec) == 0) {
+              if (strcmp(in_type, "crunch") == 0) {
+                res = sp_print_class(&ctx, found);
+              } else {
+                uint32_t line;
+                line = sp_find_last_line(found);
+                fprintf(stdout, "%u", line);
+                res = EXIT_SUCCESS;
+              }
+            }
+#endif
+            else if (strcmp(ts_node_type(found), enum_spec) == 0) {
               if (strcmp(in_type, "crunch") == 0) {
                 res = sp_print_enum(&ctx, found);
               } else {
@@ -1141,6 +1188,8 @@ main(int argc, const char *argv[])
 //TODO print indiciation of in which if case we are located in
 //TODO print idincation before return
 //TODO maybe if there is no struct prefix we print %p (example: struct IOPort vs IOPort)
-//
+
 //TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
 // example: NOTE: assumes xxx and l_xxx is related
+
+// TODO generate 2 print function typedef struct name {} name_t;
