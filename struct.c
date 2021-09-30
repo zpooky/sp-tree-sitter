@@ -540,8 +540,7 @@ __format(struct sp_ts_Context *ctx,
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
-    } else if (strcmp(type, "string") ==
-               0) { //TODO this we require to have a c++ parser
+    } else if (strcmp(type, "string") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
 
