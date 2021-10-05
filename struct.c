@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <tree_sitter/api.h>
 
 #include "shared.h"
@@ -12,9 +13,16 @@
 #include <stdint.h>
 #include <assert.h>
 
+enum sp_ts_SourceDomain {
+  DEFAULT_DOMAIN = 0,
+  SYSLOG_DOMAIN,
+  LINUX_KERNEL_DOMAIN,
+};
+
 struct sp_ts_Context {
   struct sp_ts_file file;
   TSTree *tree;
+  enum sp_ts_SourceDomain domain;
 };
 
 extern const TSLanguage *
@@ -24,28 +32,38 @@ extern const TSLanguage *
 tree_sitter_cpp(void);
 
 static bool
-is_c_file(const char *filename)
+is_c_file(const char *file)
 {
   struct sp_str str;
   bool result;
-  sp_str_init_cstr(&str, filename);
-  result = sp_str_postfix_cmp(&str, ".c") == 0;
+  sp_str_init_cstr(&str, file);
+  result =
+    sp_str_postfix_cmp(&str, ".c") == 0 || sp_str_postfix_cmp(&str, ".h") == 0;
   sp_str_free(&str);
   return result;
 }
 
 static bool
-is_cpp_file(const char *filename)
+is_cpp_file(const char *file)
 {
   struct sp_str str;
   bool result;
-  sp_str_init_cstr(&str, filename);
+  sp_str_init_cstr(&str, file);
   result = sp_str_postfix_cmp(&str, ".cc") == 0 ||
            sp_str_postfix_cmp(&str, ".cpp") == 0 ||
            sp_str_postfix_cmp(&str, ".hpp") == 0 ||
            sp_str_postfix_cmp(&str, ".hh") == 0;
   sp_str_free(&str);
   return result;
+}
+
+static enum sp_ts_SourceDomain
+get_domain(const char *file)
+{
+  return strcasestr(file, "/linux-axis") != NULL
+           ? LINUX_KERNEL_DOMAIN
+           : strcasestr(file, "/dists/") != NULL ? SYSLOG_DOMAIN
+                                                 : DEFAULT_DOMAIN;
 }
 
 static TSNode
@@ -578,6 +596,12 @@ __format(struct sp_ts_Context *ctx,
       } else {
         result->format = "%c";
       }
+    } else if (strcmp(type, "spinlock_t") == 0 ||
+               strcmp(type, "pthread_spinlock_t") == 0 ||
+               strcmp(type, "pthread_mutex_t") == 0 ||
+               strcmp(type, "mutex_t") == 0 || strcmp(type, "mutex") == 0 ||
+               strcmp(type, "struct mutex") == 0) {
+      fprintf(stderr, "type[%s]\n", type);
     } else if (strcmp(type, "time_t") == 0) {
       sp_str buf_tmp;
       result->format = "%s(%jd)";
@@ -608,6 +632,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(type, "guchar") == 0 || //
                strcmp(type, "guint8") == 0 || //
                strcmp(type, "uint8") == 0 || //
+               strcmp(type, "u8") == 0 || //
                strcmp(type, "uint8_t") == 0) {
       result->format = "%d";
       /* TODO if pointer hex? */
@@ -615,18 +640,21 @@ __format(struct sp_ts_Context *ctx,
                strcmp(type, "gshort") == 0 || //
                strcmp(type, "gint16") == 0 || //
                strcmp(type, "int16") == 0 || //
+               strcmp(type, "i16") == 0 || //
                strcmp(type, "int16_t") == 0) {
       __format_numeric(result, print_prefix, "%d");
     } else if (strcmp(type, "unsigned short") == 0 || //
                strcmp(type, "gushort") == 0 || //
                strcmp(type, "guint16") == 0 || //
                strcmp(type, "uint16") == 0 || //
+               strcmp(type, "u16") == 0 || //
                strcmp(type, "uint16_t") == 0) {
       __format_numeric(result, print_prefix, "%u");
     } else if (strcmp(type, "int") == 0 || //
                strcmp(type, "signed int") == 0 || //
                strcmp(type, "gint") == 0 || //
                strcmp(type, "gint32") == 0 || //
+               strcmp(type, "i32") == 0 || //
                strcmp(type, "int32") == 0 || //
                strcmp(type, "int32_t") == 0) {
       __format_numeric(result, print_prefix, "%d");
@@ -635,6 +663,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(type, "guint") == 0 || //
                strcmp(type, "guint32") == 0 || //
                strcmp(type, "uint32") == 0 || //
+               strcmp(type, "u32") == 0 || //
                strcmp(type, "uint32_t") == 0) {
       __format_numeric(result, print_prefix, "%u");
     } else if (strcmp(type, "long") == 0 || //
@@ -771,7 +800,14 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     /* printf("null\n"); */
   }
 
-  sp_str_append(&buf, "  syslog(LOG_ERR, \"%s:");
+  if (ctx->domain == DEFAULT_DOMAIN) {
+    sp_str_append(&buf, "  printf(");
+  } else if (ctx->domain == SYSLOG_DOMAIN) {
+    sp_str_append(&buf, "  syslog(LOG_ERR,");
+  } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
+    sp_str_append(&buf, "  printk(KERN_ERR ");
+  }
+  sp_str_append(&buf, "\"%s:");
   field_it = field_dummy.next;
   while (field_it) {
     if (field_it->complete) {
@@ -931,7 +967,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
   sp_str_appends(&buf, "  if (!in) return \"", type_name, "(NULL)\";\n", NULL);
   field_it = field_dummy.next;
-  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p)[",
+  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p){",
                  NULL);
   while (field_it) {
     if (field_it->complete) {
@@ -944,7 +980,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     }
     field_it = field_it->next;
   } //while
-  sp_str_append(&buf, "]\", in");
+  sp_str_append(&buf, "}\", in");
 
   field_it = field_dummy.next;
   while (field_it) {
@@ -1076,6 +1112,7 @@ main(int argc, const char *argv[])
     } else {
       ts_parser_set_language(parser, clang);
     }
+    ctx.domain = get_domain(in_file);
 
     {
       TSNode root;
@@ -1192,3 +1229,9 @@ main(int argc, const char *argv[])
 // example: NOTE: assumes xxx and l_xxx is related
 
 // TODO generate 2 print function typedef struct name {} name_t;
+
+// TODO ignore:
+// spinlock_t		lock; /* lock for the whole structure */
+// struct mutex		io_mutex;
+//
+// TODO if in LINUX_KERNEL_DOMAIN we can print function %pF
