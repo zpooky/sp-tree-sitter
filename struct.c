@@ -316,28 +316,7 @@ __field_type(struct sp_ts_Context *ctx,
 
           type_id = sp_find_direct_child_by_type(tmp, "type_identifier");
           if (!ts_node_is_null(type_id)) {
-            result->format = "%s";
-            if (result->pointer > 1) {
-            } else {
-              char *enum_type    = sp_struct_value(ctx, type_id);
-              const char *prefix = "&";
-              sp_str buf_tmp;
-              sp_str_init(&buf_tmp, 0);
-
-              /* Example: enum type_t */
-              if (result->pointer) {
-                prefix = "";
-              }
-              sp_str_appends(&buf_tmp, "sp_debug_", enum_type, "(", prefix,
-                             print_prefix, result->variable, ")", NULL);
-              result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-              result->complex_printf = true;
-
-              /* enum $type_identifier $field_identifier; */
-              // sp_debug_$enum_type($var->($result->variable));
-              sp_str_free(&buf_tmp);
-              free(enum_type);
-            }
+            type = sp_struct_value(ctx, type_id);
           } else {
             TSNode enum_list;
 
