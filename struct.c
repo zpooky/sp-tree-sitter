@@ -405,30 +405,46 @@ __field_type(struct sp_ts_Context *ctx,
         } else {
           tmp = sp_find_direct_child_by_type(subject, "struct_specifier");
           if (!ts_node_is_null(tmp)) {
+#if 0
+            fprintf(stderr, "5\n");
+            {
+              uint32_t i;
+              for (i = 0; i < ts_node_child_count(tmp); ++i) {
+                TSNode child          = ts_node_child(tmp, i);
+                const char *node_type = ts_node_type(child);
+                fprintf(stderr, "# [%s]\n", node_type);
+              }
+            }
+#endif
 
             tmp = sp_find_direct_child_by_type(tmp, "type_identifier");
             if (!ts_node_is_null(tmp)) {
-              result->format = "%s";
-              if (result->pointer > 1) {
-              } else {
-                char *struct_type  = sp_struct_value(ctx, tmp);
-                const char *prefix = "&";
-                sp_str buf_tmp;
-                sp_str_init(&buf_tmp, 0);
-
-                /* Example: struct type_t */
-                if (result->pointer) {
-                  prefix = "";
+              type = sp_struct_value(ctx, tmp);
+            } else {
+              tmp = sp_find_direct_child_by_type(subject, "field_identifier");
+              if (!ts_node_is_null(tmp)) {
+#if 0
+                {
+                  unsigned i;
+                  for (i = 0; i < ts_node_child_count(tmp); ++i) {
+                    TSNode child = ts_node_child(tmp, i);
+                    uint32_t s   = ts_node_start_byte(child);
+                    uint32_t e   = ts_node_end_byte(child);
+                    uint32_t len = e - s;
+                    fprintf(stderr, ".%u\n", i);
+                    fprintf(stderr, "children: %u\n",
+                            ts_node_child_count(child));
+                    fprintf(stderr, "%.*s: %s\n", (int)len,
+                            &ctx->file.content[s], ts_node_type(child));
+                  }
                 }
-                sp_str_appends(&buf_tmp, "sp_debug_", struct_type, "(", prefix,
-                               print_prefix, result->variable, ")", NULL);
-                result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-                result->complex_printf = true;
-
-                /* struct $struct_specifier $field_identifier; */
-                // sp_debug_$struct_type($var->($result->variable));
-                sp_str_free(&buf_tmp);
-                free(struct_type);
+#endif
+                uint32_t s   = ts_node_start_byte(subject);
+                uint32_t e   = ts_node_end_byte(subject);
+                uint32_t len = e - s;
+                fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
+                        ts_node_type(subject));
+              } else {
               }
             }
           }
@@ -449,6 +465,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
   tmp = sp_find_direct_child_by_type(subject, identifier);
   if (!ts_node_is_null(tmp)) {
     result->variable = sp_struct_value(ctx, tmp);
+    /* fprintf(stderr, "1: %s\n", result->variable); */
   } else {
     tmp = sp_find_direct_child_by_type(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
@@ -525,6 +542,8 @@ __format(struct sp_ts_Context *ctx,
   /* https://developer.gnome.org/glib/stable/glib-Basic-Types.html */
   /* https://en.cppreference.com/w/cpp/types/integer */
   //TODO strdup
+
+  /* fprintf(stderr, "- %s\n", type); */
   if (type) {
     if (result->pointer > 1) {
       result->format = "%p";
@@ -601,7 +620,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(type, "pthread_mutex_t") == 0 ||
                strcmp(type, "mutex_t") == 0 || strcmp(type, "mutex") == 0 ||
                strcmp(type, "struct mutex") == 0) {
-      fprintf(stderr, "type[%s]\n", type);
+      /* fprintf(stderr, "type[%s]\n", type); */
     } else if (strcmp(type, "time_t") == 0) {
       sp_str buf_tmp;
       result->format = "%s(%jd)";
@@ -815,7 +834,7 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
                      NULL);
       ++complete;
     } else {
-      fprintf(stderr, "Unknown: %s\n",
+      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
               field_it->variable ? field_it->variable : "NULL");
     }
     field_it = field_it->next;
@@ -855,6 +874,7 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   if ((result = __field_name(ctx, subject, "field_identifier"))) {
     /* fprintf(stderr,"%s\n", result->variable); */
     type = __field_type(ctx, subject, result, "in->");
+    /* fprintf(stderr, "type[%s]\n", type); */
     __format(ctx, result, type, "in->");
   }
 
@@ -975,7 +995,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
                      NULL);
       ++complete;
     } else {
-      fprintf(stderr, "Unknown: %s\n",
+      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
               field_it->variable ? field_it->variable : "NULL");
     }
     field_it = field_it->next;
