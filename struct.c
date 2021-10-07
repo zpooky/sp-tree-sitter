@@ -446,7 +446,10 @@ __field_type(struct sp_ts_Context *ctx,
                     struct arg_list *arg = NULL;
 
                     if ((arg = __field_to_arg(ctx, field))) {
-                      field_it = field_it->next = arg;
+                      field_it->next = arg;
+                      while (field_it->next) {
+                        field_it = field_it->next;
+                      }
                     }
                   }
                 } //for
@@ -577,29 +580,28 @@ __format(struct sp_ts_Context *ctx,
 
   /* fprintf(stderr, "- %s\n", type); */
   if (result) {
-    if (!result->type) {
-      if (result->rec) {
-        struct arg_list *it = result->rec;
-        while (it) {
-          sp_str buf_tmp;
-          sp_str_init(&buf_tmp, 0);
+    if (result->rec) {
+      struct arg_list *it = result->rec;
+      while (it) {
+        sp_str buf_tmp;
+        sp_str_init(&buf_tmp, 0);
 
-          sp_str_appends(&buf_tmp, result->variable, ".", it->variable, NULL);
+        fprintf(stderr, "__%s:%s\n", it->variable, it->type);
+        sp_str_appends(&buf_tmp, result->variable, ".", it->variable, NULL);
 
-          free(it->variable);
-          it->variable = strdup(sp_str_c_str(&buf_tmp));
-          sp_str_free(&buf_tmp);
+        free(it->variable);
+        it->variable = strdup(sp_str_c_str(&buf_tmp));
+        sp_str_free(&buf_tmp);
 
-          if (!it->next) {
-            break;
-          }
-          it = it->next;
-        } //while
-        it->next     = result->next;
-        result->next = result->rec;
-        result->rec  = NULL;
-        result->dead = true;
-      }
+        if (!it->next) {
+          break;
+        }
+        it = it->next;
+      } //while
+      it->next     = result->next;
+      result->next = result->rec;
+      result->dead = true;
+      return;
     }
   }
 
@@ -620,6 +622,7 @@ __format(struct sp_ts_Context *ctx,
         sp_str_appends(&buf_tmp, print_prefix, result->variable, NULL);
       }
       sp_str_appends(&buf_tmp, " ? \"TRUE\" : \"FALSE\"", NULL);
+      free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
 
@@ -633,6 +636,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%p";
       sp_str_appends(&buf_tmp, "(void*)", print_prefix, result->variable, NULL);
+      free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
@@ -648,6 +652,7 @@ __format(struct sp_ts_Context *ctx,
       } else {
         sp_str_append(&buf_tmp, ".c_str()");
       }
+      free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
 
@@ -665,6 +670,7 @@ __format(struct sp_ts_Context *ctx,
         /* char $field_identifier[$array_len] */
         sp_str_appends(&buf_tmp, "(int)", result->variable_array_length, ", ",
                        print_prefix, result->variable, NULL);
+        free(result->complex_raw);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
 
@@ -689,6 +695,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str_appends(&buf_tmp, "asctime(gmtime(&", print_prefix,
                      result->variable, ")), (intmax_t)", print_prefix,
                      result->variable, NULL);
+      free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
 
@@ -704,6 +711,7 @@ __format(struct sp_ts_Context *ctx,
         sp_str_appends(&buf_tmp, "IMFIX2F(", print_prefix, result->variable,
                        ")", NULL);
       }
+      free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
@@ -805,6 +813,7 @@ __format(struct sp_ts_Context *ctx,
         sp_str_appends(&buf_tmp, "sp_debug_", result->type, "(", NULL);
         sp_str_appends(&buf_tmp, prefix, print_prefix, result->variable, NULL);
         sp_str_appends(&buf_tmp, ")", NULL);
+        free(result->complex_raw);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
 
@@ -820,10 +829,8 @@ static struct arg_list *
 __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
-  char *type              = NULL;
 
-  result = __field_name(ctx, subject, "identifier");
-  if (result) {
+  if ((result = __field_name(ctx, subject, "identifier"))) {
     result->type = __field_type(ctx, subject, result, "");
     /* printf("%s: %s\n", type, result->variable); */
     __format(ctx, result, "");
@@ -833,7 +840,6 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
     result->complete = true;
   }
 
-  free(type);
   return result;
 }
 
@@ -926,24 +932,31 @@ static struct arg_list *
 __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
-  char *type              = NULL;
 
   /* fprintf(stderr, "%s\n", __func__); */
 
   /* TODO result->format, result->variable strdup() */
 
   if ((result = __field_name(ctx, subject, "field_identifier"))) {
+    struct arg_list *it;
     /* fprintf(stderr,"%s\n", result->variable); */
     result->type = __field_type(ctx, subject, result, "in->");
     /* fprintf(stderr, "type[%s]\n", type); */
-    __format(ctx, result, "in->");
+
+    it = result;
+    while (1) {
+      __format(ctx, it, "in->");
+      it->complete = false;
+      if (!it->dead && it->format && it->variable) {
+        it->complete = true;
+      }
+      if (!it->next) {
+        break;
+      }
+      it = it->next;
+    }
   }
 
-  if (result && result->format && result->variable) {
-    result->complete = true;
-  }
-
-  free(type);
   return result;
 }
 
@@ -1009,7 +1022,10 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
         struct arg_list *arg = NULL;
 
         if ((arg = __field_to_arg(ctx, field))) {
-          field_it = field_it->next = arg;
+          field_it->next = arg;
+          while (field_it->next) {
+            field_it = field_it->next;
+          }
         }
 
 #if 0
