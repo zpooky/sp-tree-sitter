@@ -263,6 +263,8 @@ debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
     fprintf(stderr, "[%s]", type);
     if (strcmp(type, "field_identifier") == 0 ||
         strcmp(type, "primitive_type") == 0 ||
+        strcmp(type, "number_literal") == 0 ||
+        strcmp(type, "identifier") == 0 ||
         strcmp(type, "type_identifier") == 0) {
       uint32_t s   = ts_node_start_byte(child);
       uint32_t e   = ts_node_end_byte(child);
@@ -873,47 +875,12 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static int
-sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
+sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
 {
-  int res = EXIT_SUCCESS;
-  TSNode tmp;
-  struct arg_list field_dummy = {0};
-  struct arg_list *field_it   = &field_dummy;
-  size_t complete             = 0;
   sp_str buf;
+  size_t complete = 0;
+  struct arg_list *field_it;
   sp_str_init(&buf, 0);
-
-  /* printf("here!"); */
-  tmp = find_direct_chld_by_type(subject, "function_declarator");
-  if (!ts_node_is_null(tmp)) {
-    tmp = find_direct_chld_by_type(tmp, "parameter_list");
-    if (!ts_node_is_null(tmp)) {
-      uint32_t i;
-      struct arg_list *arg = NULL;
-
-      for (i = 0; i < ts_node_child_count(tmp); ++i) {
-        TSNode parameter_decl = ts_node_child(tmp, i);
-        if (strcmp(ts_node_type(parameter_decl), "parameter_declaration") ==
-            0) {
-#if 0
-  uint32_t a;
-  for (a = 0; a < ts_node_child_count(parameter_decl); ++a) {
-    TSNode child = ts_node_child(parameter_decl, a);
-    printf("- %s\n", ts_node_string(child));
-  }
-#endif
-          if ((arg = __parameter_to_arg(ctx, parameter_decl))) {
-            field_it = field_it->next = arg;
-          }
-        }
-      } //for
-    } else {
-      printf("null\n");
-    }
-
-  } else {
-    /* printf("null\n"); */
-  }
 
   if (ctx->domain == DEFAULT_DOMAIN) {
     sp_str_append(&buf, "  printf(");
@@ -923,7 +890,7 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
   sp_str_append(&buf, "\"%s:");
-  field_it = field_dummy.next;
+  field_it = fields;
   while (field_it) {
     if (field_it->complete) {
       sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
@@ -936,7 +903,7 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
     field_it = field_it->next;
   } //while
   sp_str_append(&buf, "\\n\", __func__");
-  field_it = field_dummy.next;
+  field_it = fields;
   while (field_it) {
     if (field_it->complete) {
       sp_str_append(&buf, ", ");
@@ -953,6 +920,89 @@ sp_print_function(struct sp_ts_Context *ctx, TSNode subject)
 
   fprintf(stdout, "%s", sp_str_c_str(&buf));
   sp_str_free(&buf);
+
+  return EXIT_SUCCESS;
+}
+
+static int
+sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
+{
+  int res = EXIT_SUCCESS;
+  TSNode tmp;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
+
+  /* printf("here!"); */
+  tmp = find_direct_chld_by_type(subject, "function_declarator");
+  if (!ts_node_is_null(tmp)) {
+    tmp = find_direct_chld_by_type(tmp, "parameter_list");
+    if (!ts_node_is_null(tmp)) {
+      uint32_t i;
+      struct arg_list *arg = NULL;
+
+      for (i = 0; i < ts_node_child_count(tmp); ++i) {
+        TSNode param_decl = ts_node_child(tmp, i);
+        if (strcmp(ts_node_type(param_decl), "parameter_declaration") == 0) {
+#if 0
+  uint32_t a;
+  for (a = 0; a < ts_node_child_count(param_decl); ++a) {
+    TSNode child = ts_node_child(param_decl, a);
+    printf("- %s\n", ts_node_string(child));
+  }
+#endif
+          if ((arg = __parameter_to_arg(ctx, param_decl))) {
+            field_it = field_it->next = arg;
+          }
+        }
+      } //for
+    } else {
+      printf("null\n");
+    }
+
+  } else {
+    /* printf("null\n"); */
+  }
+
+  sp_do_print_function(ctx, field_dummy.next);
+  return res;
+}
+
+static int
+sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
+{
+  int res                     = EXIT_SUCCESS;
+  TSNode it                   = subject;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
+  while (!ts_node_is_null(it)) {
+    TSNode sibling = it;
+    /* fprintf(stderr, "%s\n", ts_node_type(it)); */
+    do {
+      if (strcmp(ts_node_type(sibling), "declaration") == 0) {
+        struct arg_list *arg = NULL;
+        uint32_t s           = ts_node_start_byte(sibling);
+        uint32_t e           = ts_node_end_byte(sibling);
+        uint32_t len         = e - s;
+        fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
+                ts_node_type(sibling));
+        if ((arg = __parameter_to_arg(ctx, sibling))) {
+          field_it = field_it->next = arg;
+        }
+        //TODO support type var [= value]; part
+        //TODO maybe add is_initated:bool to struct arg_list (which is true for function parametrs, unrelevant for struct members)
+        //  TODO then add support to detect for variable init after declaration
+      }
+      sibling = ts_node_prev_sibling(sibling);
+    } while (!ts_node_is_null(sibling));
+
+    if (strcmp(ts_node_type(it), "function_definition") == 0) {
+      break;
+    }
+    it = ts_node_parent(it);
+  } //while
+  /* fprintf(stderr, "============================\n"); */
+  /* debug_subtypes_rec(ctx, it, 0); */
+  sp_do_print_function(ctx, field_dummy.next);
 
   return res;
 }
@@ -990,39 +1040,73 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static int
+sp_do_print_struct(struct sp_ts_Context *ctx,
+                   bool type_name_t,
+                   const char *type_name,
+                   struct arg_list *const fields)
+{
+  struct arg_list *field_it;
+  size_t complete = 0;
+  sp_str buf;
+  sp_str_init(&buf, 0);
+
+  (void)ctx;
+
+  sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
+                 NULL);
+  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name,
+                 " *in", NULL);
+  sp_str_append(&buf, ") {\n");
+  sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
+  sp_str_appends(&buf, "  if (!in) return \"", type_name, "(NULL)\";\n", NULL);
+  field_it = fields;
+  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p){",
+                 NULL);
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
+                     NULL);
+      ++complete;
+    } else {
+      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
+              field_it->variable ? field_it->variable : "NULL");
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, "}\", in");
+
+  field_it = fields;
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_append(&buf, ", ");
+      if (field_it->complex_printf) {
+        assert(field_it->complex_raw);
+        sp_str_append(&buf, field_it->complex_raw);
+      } else {
+        sp_str_appends(&buf, "in->", field_it->variable, NULL);
+      }
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, ");\n");
+  sp_str_append(&buf, "  return buf;\n");
+  sp_str_append(&buf, "}\n");
+
+  fprintf(stdout, "%s", sp_str_c_str(&buf));
+
+  sp_str_free(&buf);
+  return EXIT_SUCCESS;
+}
+
+static int
 sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 {
   char *type_name             = NULL;
   bool type_name_t            = false;
-  size_t complete             = 0;
   struct arg_list field_dummy = {0};
   struct arg_list *field_it   = &field_dummy;
   uint32_t i;
   TSNode tmp;
-  sp_str buf;
-
-  sp_str_init(&buf, 0);
-
-#if 0
-  fprintf(stderr, "%s\n", __func__);
-  fprintf(stderr,"--\n");
-  for (i = 0; i < ts_node_child_count(subject); ++i) {
-    TSNode child = ts_node_child(subject, i);
-    uint32_t s   = ts_node_start_byte(child);
-    uint32_t e   = ts_node_end_byte(child);
-    uint32_t len = e - s;
-    fprintf(stderr, ".%u\n", i);
-    fprintf(stderr, "children: %u\n", ts_node_child_count(child));
-    fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-            ts_node_type(child));
-  }
-  fprintf(stderr,"--\n");
-#endif
-#if 0
-  char *p = ts_node_string(subject);
-  fprintf(stdout, "%s\n", p);
-  free(p);
-#endif
 
   tmp = find_direct_chld_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
@@ -1056,84 +1140,18 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
             field_it = field_it->next;
           }
         }
-
-#if 0
-        uint32_t a;
-        for (a = 0; a < ts_node_child_count(field); ++a) {
-          TSNode child = ts_node_child(field, a);
-          uint32_t s   = ts_node_start_byte(child);
-          uint32_t e   = ts_node_end_byte(child);
-          uint32_t len = e - s;
-          fprintf(stderr, ".%d\n", a);
-          fprintf(stderr, "children: %u\n", ts_node_child_count(child));
-          fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-                  ts_node_type(child));
-        }
-#endif
       }
-    }
+    } //for
   }
 
-#if 0
-  for (i = 0; i < ts_node_child_count(subject); ++i) {
-    uint32_t s   = ts_node_start_byte(ts_node_child(subject, i));
-    uint32_t e   = ts_node_end_byte(ts_node_child(subject, i));
-    uint32_t len = e - s;
-    fprintf(stderr, ".%u\n", i);
-    fprintf(stderr, "children: %u\n", ts_node_child_count(subject));
-    fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-            ts_node_type(ts_node_child(subject, i)));
-  }
-#endif
-
-  sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
-                 NULL);
-  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name,
-                 " *in) {\n", NULL);
-  sp_str_append(&buf, "  static char buf[256] = {'\\0'};\n");
-  sp_str_appends(&buf, "  if (!in) return \"", type_name, "(NULL)\";\n", NULL);
-  field_it = field_dummy.next;
-  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p){",
-                 NULL);
-  while (field_it) {
-    if (field_it->complete) {
-      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
-                     NULL);
-      ++complete;
-    } else {
-      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
-              field_it->variable ? field_it->variable : "NULL");
-    }
-    field_it = field_it->next;
-  } //while
-  sp_str_append(&buf, "}\", in");
-
-  field_it = field_dummy.next;
-  while (field_it) {
-    if (field_it->complete) {
-      sp_str_append(&buf, ", ");
-      if (field_it->complex_printf) {
-        /* char buf_tmp[256] = {'\0'}; */
-        assert(field_it->complex_raw);
-        //TODO support "in->{var}".format(map) expansion
-        /*         snprintf(buf_tmp, sizeof(buf_tmp), field_it->complex_raw, "in", "in", */
-        /*                  "in", "in"); */
-        /* sp_str_append(&buf, buf_tmp); */
-        sp_str_append(&buf, field_it->complex_raw);
-      } else {
-        sp_str_appends(&buf, "in->", field_it->variable, NULL);
-      }
-    }
-    field_it = field_it->next;
-  } //while
-  sp_str_append(&buf, ");\n");
-  sp_str_append(&buf, "  return buf;\n");
-  sp_str_append(&buf, "}\n");
-
-  fprintf(stdout, "%s", sp_str_c_str(&buf));
-
+  sp_do_print_struct(ctx, type_name_t, type_name, field_dummy.next);
   free(type_name);
-  sp_str_free(&buf);
+  return EXIT_SUCCESS;
+}
+
+static int
+sp_print_class(struct sp_ts_Context *ctx, TSNode subject)
+{
   return EXIT_SUCCESS;
 }
 
@@ -1278,53 +1296,57 @@ main(int argc, const char *argv[])
 
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
-          const char *struct_spec   = "struct_specifier";
-          const char *class_spec    = "class_specifier";
-          const char *enum_spec     = "enum_specifier";
-          const char *function_spec = "function_definition";
-          TSNode found = sp_find_parent(highligted, struct_spec, enum_spec,
-                                        function_spec, class_spec);
-          if (!ts_node_is_null(found)) {
-            if (strcmp(ts_node_type(found), struct_spec) == 0) {
-              if (strcmp(in_type, "crunch") == 0) {
-                res = sp_print_struct(&ctx, found);
-              } else {
-                uint32_t line;
-                line = sp_find_last_line(found);
-                fprintf(stdout, "%u", line);
-                res = EXIT_SUCCESS;
+          if (strcmp(in_type, "locals") == 0) {
+            res = sp_print_locals(&ctx, highligted);
+          } else {
+            const char *struct_spec = "struct_specifier";
+            const char *class_spec  = "class_specifier";
+            const char *enum_spec   = "enum_specifier";
+            const char *fun_spec    = "function_definition";
+            TSNode found = sp_find_parent(highligted, struct_spec, enum_spec,
+                                          fun_spec, class_spec);
+            if (!ts_node_is_null(found)) {
+              if (strcmp(ts_node_type(found), struct_spec) == 0) {
+                if (strcmp(in_type, "crunch") == 0) {
+                  res = sp_print_struct(&ctx, found);
+                } else {
+                  uint32_t line;
+                  line = sp_find_last_line(found);
+                  fprintf(stdout, "%u", line);
+                  res = EXIT_SUCCESS;
+                }
               }
-            }
 #if 1
-            else if (strcmp(ts_node_type(found), class_spec) == 0) {
-              if (strcmp(in_type, "crunch") == 0) {
-                res = sp_print_class(&ctx, found);
-              } else {
-                uint32_t line;
-                line = sp_find_last_line(found);
-                fprintf(stdout, "%u", line);
-                res = EXIT_SUCCESS;
+              else if (strcmp(ts_node_type(found), class_spec) == 0) {
+                if (strcmp(in_type, "crunch") == 0) {
+                  res = sp_print_class(&ctx, found);
+                } else {
+                  uint32_t line;
+                  line = sp_find_last_line(found);
+                  fprintf(stdout, "%u", line);
+                  res = EXIT_SUCCESS;
+                }
               }
-            }
 #endif
-            else if (strcmp(ts_node_type(found), enum_spec) == 0) {
-              if (strcmp(in_type, "crunch") == 0) {
-                res = sp_print_enum(&ctx, found);
-              } else {
-                uint32_t line;
-                line = sp_find_last_line(found);
-                fprintf(stdout, "%u", line);
-                res = EXIT_SUCCESS;
-              }
-            } else if (strcmp(ts_node_type(found), function_spec) == 0) {
-              if (strcmp(in_type, "crunch") == 0) {
-                /* printf("%s\n", ts_node_string(found)); */
-                res = sp_print_function(&ctx, found);
-              } else {
-                uint32_t line;
-                line = sp_find_open_bracket(found);
-                fprintf(stdout, "%u", line);
-                res = EXIT_SUCCESS;
+              else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+                if (strcmp(in_type, "crunch") == 0) {
+                  res = sp_print_enum(&ctx, found);
+                } else {
+                  uint32_t line;
+                  line = sp_find_last_line(found);
+                  fprintf(stdout, "%u", line);
+                  res = EXIT_SUCCESS;
+                }
+              } else if (strcmp(ts_node_type(found), fun_spec) == 0) {
+                if (strcmp(in_type, "crunch") == 0) {
+                  /* printf("%s\n", ts_node_string(found)); */
+                  res = sp_print_function_args(&ctx, found);
+                } else {
+                  uint32_t line;
+                  line = sp_find_open_bracket(found);
+                  fprintf(stdout, "%u", line);
+                  res = EXIT_SUCCESS;
+                }
               }
             }
           }
@@ -1349,15 +1371,8 @@ main(int argc, const char *argv[])
 //TODO print all local variables visible at cursor position (leader+l)
 //TODO print indiciation of in which if case we are located in
 //TODO print idincation before return
-//TODO maybe if there is no struct prefix we print %p (example: struct IOPort vs IOPort)
 
 //TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
 // example: NOTE: assumes xxx and l_xxx is related
 
 // TODO generate 2 print function typedef struct name {} name_t;
-
-// TODO ignore:
-// spinlock_t		lock; /* lock for the whole structure */
-// struct mutex		io_mutex;
-//
-// TODO if in LINUX_KERNEL_DOMAIN we can print function %pF
