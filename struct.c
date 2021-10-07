@@ -41,6 +41,8 @@ struct arg_list {
   bool complex_printf;
   uint32_t pointer;
 
+  bool function_pointer;
+
   bool dead;
 
   bool is_array;
@@ -533,6 +535,28 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
         if (!result->variable_array_length) {
           result->variable_array_length = strdup("0");
         }
+      } else {
+        TSNode fun_decl;
+        fun_decl = find_direct_chld_by_type(subject, "function_declarator");
+
+        if (!ts_node_is_null(fun_decl)) {
+          TSNode par_decl;
+          par_decl =
+            find_direct_chld_by_type(fun_decl, "parenthesized_declarator");
+
+          fprintf(stderr, "%s: 1\n", __func__);
+          if (!ts_node_is_null(par_decl)) {
+            tmp = find_direct_chld_by_type(par_decl, "pointer_declarator");
+            if (!ts_node_is_null(tmp)) {
+              tmp = __rec_search(ctx, tmp, identifier, 1, &result->pointer);
+              if (!ts_node_is_null(tmp)) {
+                result->variable = sp_struct_value(ctx, tmp);
+                fprintf(stderr, "||%s\n", result->variable);
+                result->function_pointer = true;
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -604,8 +628,13 @@ __format(struct sp_ts_Context *ctx,
       return;
     }
   }
-
-  if (result->type) {
+  if (result->function_pointer) {
+    if (ctx->domain == LINUX_KERNEL_DOMAIN && result->pointer == 1) {
+      result->format = "%pF";
+    } else {
+      result->format = "%p";
+    }
+  } else if (result->type) {
     if (result->pointer > 1) {
       result->format = "%p";
     } else if (strcmp(result->type, "gboolean") == 0 || //
