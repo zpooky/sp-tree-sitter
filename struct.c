@@ -428,7 +428,7 @@ __field_type(struct sp_ts_Context *ctx,
           if (!ts_node_is_null(struct_spec)) {
             TSNode type_id;
             fprintf(stderr, "5\n");
-            debug_subtypes_rec(ctx, subject, 0);
+            /* debug_subtypes_rec(ctx, subject, 0); */
             type_id = find_direct_chld_by_type(struct_spec, "type_identifier");
             if (!ts_node_is_null(type_id)) {
               fprintf(stderr, "5.1\n");
@@ -499,6 +499,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
   TSNode tmp;
   result = calloc(1, sizeof(*result));
 
+  /* debug_subtypes_rec(ctx, subject, 0); */
   tmp = find_direct_chld_by_type(subject, identifier);
   if (!ts_node_is_null(tmp)) {
     result->variable = sp_struct_value(ctx, tmp);
@@ -557,6 +558,13 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
                 result->function_pointer = true;
               }
             }
+          }
+        } else {
+          /* Note: this is for when we have `type var = "";` */
+          tmp = find_direct_chld_by_type(subject, "init_declarator");
+          if (!ts_node_is_null(tmp)) {
+            return __field_name(ctx, tmp, identifier);
+          } else {
           }
         }
       }
@@ -718,6 +726,56 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "mutex") == 0 ||
                strcmp(result->type, "struct mutex") == 0) {
       /* fprintf(stderr, "type[%s]\n", type); */
+
+    } else if (strcmp(result->type, "GError") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
+                       print_prefix, result->variable, "->message : \"NULL\"",
+                       NULL);
+      } else {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, ".message",
+                       NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GIOChannel") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      result->format = "%d";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
+                       "g_io_channel_unix_get_fd(", print_prefix,
+                       result->variable, ") : ", "-1337", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "g_io_channel_unix_get_fd(&", print_prefix,
+                       result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GKeyFile") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ", "SOME",
+                       " : NULL", NULL);
+      } else {
+        sp_str_append(&buf_tmp, "SOME");
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "time_t") == 0) {
       sp_str buf_tmp;
       result->format = "%s(%jd)";
@@ -862,8 +920,9 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   struct arg_list *result = NULL;
 
   if ((result = __field_name(ctx, subject, "identifier"))) {
+    /* fprintf(stderr, "|%s\n", result->variable); */
     result->type = __field_type(ctx, subject, result, "");
-    /* printf("%s: %s\n", type, result->variable); */
+    fprintf(stderr, "|%s: %s\n", result->type, result->variable);
     __format(ctx, result, "");
   }
 
@@ -966,6 +1025,43 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
   sp_do_print_function(ctx, field_dummy.next);
   return res;
 }
+static TSNode
+sp_find_sibling_of_type(TSNode subject, const char *type)
+{
+  TSNode empty = {0};
+  TSNode it;
+  if (strcmp(ts_node_type(subject), type) == 0) {
+    return subject;
+  }
+
+  it = subject;
+  {
+  loop1:
+    it = ts_node_prev_sibling(it);
+
+    if (!ts_node_is_null(it)) {
+      if (strcmp(ts_node_type(it), type) == 0) {
+        return subject;
+      }
+      goto loop1;
+    }
+  }
+
+  it = subject;
+  {
+  loop2:
+    it = ts_node_next_sibling(it);
+
+    if (!ts_node_is_null(it)) {
+      if (strcmp(ts_node_type(it), type) == 0) {
+        return subject;
+      }
+      goto loop2;
+    }
+  }
+
+  return empty;
+}
 
 static int
 sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
@@ -977,32 +1073,36 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
   while (!ts_node_is_null(it)) {
     TSNode sibling = it;
     /* fprintf(stderr, "%s\n", ts_node_type(it)); */
+    fprintf(stderr, "- %s\n", ts_node_type(it));
+    if (!ts_node_is_null(sp_find_sibling_of_type(it, "function_definition"))) {
+      break;
+    }
     do {
       if (strcmp(ts_node_type(sibling), "declaration") == 0) {
         struct arg_list *arg = NULL;
+#if 0
         uint32_t s           = ts_node_start_byte(sibling);
         uint32_t e           = ts_node_end_byte(sibling);
         uint32_t len         = e - s;
         fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
                 ts_node_type(sibling));
+#endif
         if ((arg = __parameter_to_arg(ctx, sibling))) {
           field_it = field_it->next = arg;
         }
-        //TODO support type var [= value]; part
         //TODO maybe add is_initated:bool to struct arg_list (which is true for function parametrs, unrelevant for struct members)
         //  TODO then add support to detect for variable init after declaration
       }
       sibling = ts_node_prev_sibling(sibling);
     } while (!ts_node_is_null(sibling));
 
-    if (strcmp(ts_node_type(it), "function_definition") == 0) {
-      break;
-    }
     it = ts_node_parent(it);
   } //while
   /* fprintf(stderr, "============================\n"); */
   /* debug_subtypes_rec(ctx, it, 0); */
   sp_do_print_function(ctx, field_dummy.next);
+
+  /*     TODO int i, j; */
 
   return res;
 }
