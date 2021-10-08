@@ -767,10 +767,10 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ", "SOME",
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ", "\"SOME\"",
                        " : NULL", NULL);
       } else {
-        sp_str_append(&buf_tmp, "SOME");
+        sp_str_append(&buf_tmp, "\"SOME\"");
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -781,9 +781,10 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s(%jd)";
 
       sp_str_init(&buf_tmp, 0);
-      sp_str_appends(&buf_tmp, "asctime(gmtime(&", print_prefix,
-                     result->variable, ")), (intmax_t)", print_prefix,
-                     result->variable, NULL);
+      sp_str_appends(&buf_tmp, //
+                     "asctime(", //
+                     "gmtime(&", print_prefix, result->variable, ")",
+                     "), (intmax_t)", print_prefix, result->variable, NULL);
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
@@ -794,11 +795,29 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%f";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? IMFIX2F(*",
-                       print_prefix, result->variable, ") : 0", NULL);
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
+                       "IMFIX2F(*", print_prefix, result->variable, ") : 0",
+                       NULL);
       } else {
-        sp_str_appends(&buf_tmp, "IMFIX2F(", print_prefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, //
+                       "IMFIX2F(", print_prefix, result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "sp_str") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
+                       "sp_str_c_str(", print_prefix, result->variable, ")",
+                       " : \"NULL\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "sp_str_c_str(&", print_prefix,
+                       result->variable, ")", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -810,8 +829,11 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "uint8") == 0 || //
                strcmp(result->type, "u8") == 0 || //
                strcmp(result->type, "uint8_t") == 0) {
-      result->format = "%d";
-      /* TODO if pointer hex? */
+      if (result->pointer) {
+        /* TODO if pointer hex? */
+      } else {
+        result->format = "%d";
+      }
     } else if (strcmp(result->type, "short") == 0 || //
                strcmp(result->type, "gshort") == 0 || //
                strcmp(result->type, "gint16") == 0 || //
@@ -922,7 +944,7 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   if ((result = __field_name(ctx, subject, "identifier"))) {
     /* fprintf(stderr, "|%s\n", result->variable); */
     result->type = __field_type(ctx, subject, result, "");
-    fprintf(stderr, "|%s: %s\n", result->type, result->variable);
+    /* fprintf(stderr, "|%s: %s\n", result->type, result->variable); */
     __format(ctx, result, "");
   }
 
@@ -948,6 +970,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
+  //TODO limit the length of the line when printing the format part AND maybe for alignment of the variable part by //
   sp_str_append(&buf, "\"%s:");
   field_it = fields;
   while (field_it) {
@@ -1073,7 +1096,7 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
   while (!ts_node_is_null(it)) {
     TSNode sibling = it;
     /* fprintf(stderr, "%s\n", ts_node_type(it)); */
-    fprintf(stderr, "- %s\n", ts_node_type(it));
+    /* fprintf(stderr, "- %s\n", ts_node_type(it)); */
     if (!ts_node_is_null(sp_find_sibling_of_type(it, "function_definition"))) {
       break;
     }
@@ -1098,11 +1121,13 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
 
     it = ts_node_parent(it);
   } //while
+  //TODO reverse list before printing
   /* fprintf(stderr, "============================\n"); */
   /* debug_subtypes_rec(ctx, it, 0); */
   sp_do_print_function(ctx, field_dummy.next);
 
   /*     TODO int i, j; */
+  /* TODO cursor on empty line */
 
   return res;
 }
