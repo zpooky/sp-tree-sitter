@@ -767,8 +767,8 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ", "\"SOME\"",
-                       " : NULL", NULL);
+        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
+                       "\"SOME\"", " : NULL", NULL);
       } else {
         sp_str_append(&buf_tmp, "\"SOME\"");
       }
@@ -958,10 +958,14 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 static int
 sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
 {
+  const size_t MAX_LINE = 75;
   sp_str buf;
+  sp_str line_buf;
+  size_t line_length;
   size_t complete = 0;
   struct arg_list *field_it;
   sp_str_init(&buf, 0);
+  sp_str_init(&line_buf, 0);
 
   if (ctx->domain == DEFAULT_DOMAIN) {
     sp_str_append(&buf, "  printf(");
@@ -972,10 +976,11 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   }
   //TODO limit the length of the line when printing the format part AND maybe for alignment of the variable part by //
   sp_str_append(&buf, "\"%s:");
-  field_it = fields;
+  line_length = sp_str_length(&buf);
+  field_it    = fields;
   while (field_it) {
     if (field_it->complete) {
-      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
+      sp_str_appends(&line_buf, field_it->variable, "[", field_it->format, "]",
                      NULL);
       ++complete;
     } else {
@@ -983,7 +988,15 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
               field_it->variable ? field_it->variable : "NULL");
     }
     field_it = field_it->next;
+    if ((line_length + sp_str_length(&line_buf)) > MAX_LINE) {
+      sp_str_append(&buf, "\" //\n\"");
+      line_length = 0;
+    }
+    sp_str_append_str(&buf, &line_buf);
+    line_length += sp_str_length(&line_buf);
+    sp_str_clear(&line_buf);
   } //while
+
   sp_str_append(&buf, "\\n\", __func__");
   field_it = fields;
   while (field_it) {
@@ -1001,6 +1014,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   sp_str_append(&buf, ");");
 
   fprintf(stdout, "%s", sp_str_c_str(&buf));
+  sp_str_free(&line_buf);
   sp_str_free(&buf);
 
   return EXIT_SUCCESS;
