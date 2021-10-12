@@ -824,12 +824,15 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "uchar") == 0 || //
+               strcmp(result->type, "unsigned char") == 0 || //
                strcmp(result->type, "guchar") == 0 || //
                strcmp(result->type, "guint8") == 0 || //
                strcmp(result->type, "uint8") == 0 || //
                strcmp(result->type, "u8") == 0 || //
                strcmp(result->type, "uint8_t") == 0) {
       if (result->pointer) {
+        /* TODO if pointer hex? */
+      } else if (result->is_array) {
         /* TODO if pointer hex? */
       } else {
         result->format = "%d";
