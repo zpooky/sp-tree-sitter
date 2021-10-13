@@ -54,7 +54,7 @@ struct arg_list {
 };
 
 static struct arg_list *
-__field_to_arg(struct sp_ts_Context *ctx, TSNode subject);
+__field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix);
 
 static void
 debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
@@ -456,7 +456,7 @@ __field_type(struct sp_ts_Context *ctx,
                   if (strcmp(ts_node_type(field), "field_declaration") == 0) {
                     struct arg_list *arg = NULL;
 
-                    if ((arg = __field_to_arg(ctx, field))) {
+                    if ((arg = __field_to_arg(ctx, field, "in->"))) {
                       field_it->next = arg;
                       while (field_it->next) {
                         field_it = field_it->next;
@@ -595,9 +595,9 @@ __format_numeric(struct arg_list *result,
 
     sp_str_init(&buf_tmp, 0);
     sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? *",
-                   print_prefix, result->variable, " : 1337, ", NULL);
+                   print_prefix, result->variable, " : 0, ", NULL);
     sp_str_appends(&buf_tmp, print_prefix, result->variable,
-                   " ? \"\" : \"NULL\"", NULL);
+                   " ? \"\" : \"(NULL)\"", NULL);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
@@ -1157,7 +1157,7 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static struct arg_list *
-__field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
+__field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix)
 {
   struct arg_list *result = NULL;
 
@@ -1168,12 +1168,12 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   if ((result = __field_name(ctx, subject, "field_identifier"))) {
     struct arg_list *it;
     /* fprintf(stderr,"%s\n", result->variable); */
-    result->type = __field_type(ctx, subject, result, "in->");
+    result->type = __field_type(ctx, subject, result, pprefix);
     /* fprintf(stderr, "type[%s]\n", type); */
 
     it = result;
     while (1) {
-      __format(ctx, it, "in->");
+      __format(ctx, it, pprefix);
       it->complete = false;
       if (!it->dead && it->format && it->variable) {
         it->complete = true;
@@ -1192,7 +1192,8 @@ static int
 sp_do_print_struct(struct sp_ts_Context *ctx,
                    bool type_name_t,
                    const char *type_name,
-                   struct arg_list *const fields)
+                   struct arg_list *const fields,
+                   const char *pprefix)
 {
   struct arg_list *field_it;
   size_t complete = 0;
@@ -1203,11 +1204,12 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
 
   sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
                  NULL);
-  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name,
-                 " *in", NULL);
+  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name, " *",
+                 pprefix, NULL);
   sp_str_append(&buf, ") {\n");
   sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
-  sp_str_appends(&buf, "  if (!in) return \"", type_name, "(NULL)\";\n", NULL);
+  sp_str_appends(&buf, "  if (!", pprefix, ") return \"", type_name,
+                 "(NULL)\";\n", NULL);
   field_it = fields;
   sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p){",
                  NULL);
@@ -1222,7 +1224,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
     }
     field_it = field_it->next;
   } //while
-  sp_str_append(&buf, "}\", in");
+  sp_str_appends(&buf, "}\", ", pprefix, NULL);
 
   field_it = fields;
   while (field_it) {
@@ -1232,7 +1234,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
         assert(field_it->complex_raw);
         sp_str_append(&buf, field_it->complex_raw);
       } else {
-        sp_str_appends(&buf, "in->", field_it->variable, NULL);
+        sp_str_appends(&buf, pprefix, "->", field_it->variable, NULL);
       }
     }
     field_it = field_it->next;
@@ -1256,6 +1258,8 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   struct arg_list *field_it   = &field_dummy;
   uint32_t i;
   TSNode tmp;
+  const char *pprefix  = "in->";
+  const char *pprefix2 = "in";
 
   tmp = find_direct_chld_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
@@ -1283,7 +1287,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       if (strcmp(ts_node_type(field), "field_declaration") == 0) {
         struct arg_list *arg = NULL;
 
-        if ((arg = __field_to_arg(ctx, field))) {
+        if ((arg = __field_to_arg(ctx, field, pprefix))) {
           field_it->next = arg;
           while (field_it->next) {
             field_it = field_it->next;
@@ -1293,7 +1297,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     } //for
   }
 
-  sp_do_print_struct(ctx, type_name_t, type_name, field_dummy.next);
+  sp_do_print_struct(ctx, type_name_t, type_name, field_dummy.next, pprefix2);
   free(type_name);
   return EXIT_SUCCESS;
 }
