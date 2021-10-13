@@ -83,6 +83,29 @@ debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
     debug_subtypes_rec(ctx, child, indent + 1);
   }
 }
+struct list_TSNode;
+struct list_TSNode {
+  TSNode node;
+  struct list_TSNode *next;
+};
+static struct list_TSNode *
+__leafs(struct sp_ts_Context *ctx, TSNode subject, struct list_TSNode *result)
+{
+  uint32_t i;
+  for (i = 0; i < ts_node_child_count(subject); ++i) {
+    TSNode child = ts_node_child(subject, i);
+    if (ts_node_child_count(child) > 0) {
+      struct list_TSNode *tmp;
+      if ((tmp = __leafs(ctx, child, result))) {
+        result = tmp;
+      }
+    } else {
+      result = result->next = calloc(1, sizeof(*result));
+      result->node          = child;
+    }
+  }
+  return result;
+}
 
 static bool
 is_c_file(const char *file)
@@ -1359,6 +1382,36 @@ Lerr:
   return res;
 }
 
+static TSNode
+closest_before_pos(TSPoint pos, TSNode closest, TSNode candidate)
+{
+  TSPoint cand_point = ts_node_start_point(candidate);
+  if (ts_node_is_null(closest)) {
+    closest = candidate;
+  } else {
+    TSPoint closest_point = ts_node_start_point(closest);
+    if (cand_point.row <= pos.row && closest_point.row > pos.row) {
+      closest = candidate;
+    } else if (abs((int)pos.row - (int)cand_point.row) <
+               abs((int)pos.row - (int)closest_point.row)) {
+      closest = candidate;
+    } else if (cand_point.row == pos.row && cand_point.row == pos.row) {
+      if (closest_point.column > cand_point.column &&
+          closest_point.column > pos.column) {
+        closest = candidate;
+      } else if (closest_point.column < pos.column &&
+                 cand_point.column < pos.column) {
+        if (cand_point.column > closest_point.column) {
+          closest = candidate;
+        }
+      }
+      //...
+    }
+  }
+  /* This is a mess */
+  return closest;
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -1447,6 +1500,28 @@ main(int argc, const char *argv[])
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
           if (strcmp(in_type, "locals") == 0) {
+            TSPoint hpoint = ts_node_start_point(highligted);
+            if (hpoint.row != pos.row) {
+              TSNode closest           = {0};
+              struct list_TSNode dummy = {0};
+              struct list_TSNode *it;
+              __leafs(&ctx, highligted, &dummy);
+              it = dummy.next;
+              while (it) {
+                struct list_TSNode *tmp = it;
+                closest = closest_before_pos(pos, closest, it->node);
+                it      = it->next;
+                free(tmp);
+              }
+              if (!ts_node_is_null(closest)) {
+                highligted = closest;
+              }
+            }
+
+            if (strcmp(ts_node_type(highligted), "}") == 0) {
+              highligted = ts_node_parent(highligted);
+            }
+            /* debug_subtypes_rec(&ctx, highligted, 0); */
             res = sp_print_locals(&ctx, highligted);
           } else {
             const char *struct_spec = "struct_specifier";
@@ -1520,9 +1595,12 @@ main(int argc, const char *argv[])
 /* TODO support complex (json) output for line and crunch */
 //TODO print all local variables visible at cursor position (leader+l)
 //TODO print indiciation of in which if case we are located in
-//TODO print idincation before return
+//TODO print indication before return
 
 //TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
 // example: NOTE: assumes xxx and l_xxx is related
 
 // TODO generate 2 print function typedef struct name {} name_t;
+//
+// TODO enum bitset FIRST=1 SECOND=2 THRID=4, var=FIRST|SECOND
+//      if enum has explicit values and if binary they do not owerlap = assume enum bitset
