@@ -56,6 +56,34 @@ struct arg_list {
 static struct arg_list *
 __field_to_arg(struct sp_ts_Context *ctx, TSNode subject);
 
+static void
+debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
+{
+  uint32_t i;
+  for (i = 0; i < ts_node_child_count(node); ++i) {
+    size_t a;
+    TSNode child     = ts_node_child(node, i);
+    const char *type = ts_node_type(child);
+    for (a = 0; a < indent; ++a) {
+      fprintf(stderr, "  ");
+    }
+    fprintf(stderr, "[%s]", type);
+    if (strcmp(type, "field_identifier") == 0 ||
+        strcmp(type, "primitive_type") == 0 ||
+        strcmp(type, "number_literal") == 0 ||
+        strcmp(type, "identifier") == 0 ||
+        strcmp(type, "type_identifier") == 0) {
+      uint32_t s   = ts_node_start_byte(child);
+      uint32_t e   = ts_node_end_byte(child);
+      uint32_t len = e - s;
+      fprintf(stderr, ": %.*s", (int)len, &ctx->file.content[s]);
+    }
+    fprintf(stderr, "\n");
+
+    debug_subtypes_rec(ctx, child, indent + 1);
+  }
+}
+
 static bool
 is_c_file(const char *file)
 {
@@ -157,10 +185,14 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   bool type_name_t             = false;
   struct sp_str_list dummy     = {0};
   struct sp_str_list *enums_it = &dummy;
+  bool enum_class              = false;
 
   sp_str_init(&buf, 0);
 
   /* fprintf(stderr, "%s\n", __func__); */
+
+  tmp        = find_direct_chld_by_type(subject, "class");
+  enum_class = !ts_node_is_null(tmp);
 
   tmp = find_direct_chld_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
@@ -223,6 +255,9 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   enums_it = dummy.next;
   while (enums_it) {
     sp_str_append(&buf, "    case ");
+    if (enum_class) {
+      sp_str_appends(&buf, type_name, "::", NULL);
+    }
     sp_str_append(&buf, enums_it->value);
     sp_str_append(&buf, ": return \"");
     sp_str_append(&buf, enums_it->value);
@@ -247,34 +282,6 @@ Lout:
     enums_it = next;
   }
   return res;
-}
-
-static void
-debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
-{
-  uint32_t i;
-  for (i = 0; i < ts_node_child_count(node); ++i) {
-    size_t a;
-    TSNode child     = ts_node_child(node, i);
-    const char *type = ts_node_type(child);
-    for (a = 0; a < indent; ++a) {
-      fprintf(stderr, "  ");
-    }
-    fprintf(stderr, "[%s]", type);
-    if (strcmp(type, "field_identifier") == 0 ||
-        strcmp(type, "primitive_type") == 0 ||
-        strcmp(type, "number_literal") == 0 ||
-        strcmp(type, "identifier") == 0 ||
-        strcmp(type, "type_identifier") == 0) {
-      uint32_t s   = ts_node_start_byte(child);
-      uint32_t e   = ts_node_end_byte(child);
-      uint32_t len = e - s;
-      fprintf(stderr, ": %.*s", (int)len, &ctx->file.content[s]);
-    }
-    fprintf(stderr, "\n");
-
-    debug_subtypes_rec(ctx, child, indent + 1);
-  }
 }
 
 static TSNode
