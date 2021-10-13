@@ -314,7 +314,7 @@ static char *
 __field_type(struct sp_ts_Context *ctx,
              TSNode subject,
              struct arg_list *result,
-             const char *print_prefix)
+             const char *pprefix)
 {
   TSNode tmp;
   char *type = NULL;
@@ -407,7 +407,7 @@ __field_type(struct sp_ts_Context *ctx,
 #endif
               enums_it = enum_dummy.next;
               while (enums_it) {
-                sp_str_appends(&buf_tmp, print_prefix, result->variable,
+                sp_str_appends(&buf_tmp, pprefix, result->variable,
                                " == ", enums_it->value, " ? \"",
                                enums_it->value, "\" : ", NULL);
                 enums_it = enums_it->next;
@@ -583,7 +583,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
 
 static void
 __format_numeric(struct arg_list *result,
-                 const char *print_prefix,
+                 const char *pprefix,
                  const char *format)
 {
   char buffer[64] = {'\0'};
@@ -594,10 +594,10 @@ __format_numeric(struct arg_list *result,
     result->format = strdup(buffer);
 
     sp_str_init(&buf_tmp, 0);
-    sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? *",
-                   print_prefix, result->variable, " : 0, ", NULL);
-    sp_str_appends(&buf_tmp, print_prefix, result->variable,
-                   " ? \"\" : \"(NULL)\"", NULL);
+    sp_str_appends(&buf_tmp, pprefix, result->variable, " ? *", pprefix,
+                   result->variable, " : 0, ", NULL);
+    sp_str_appends(&buf_tmp, pprefix, result->variable, " ? \"\" : \"(NULL)\"",
+                   NULL);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
@@ -609,7 +609,7 @@ __format_numeric(struct arg_list *result,
 static void
 __format(struct sp_ts_Context *ctx,
          struct arg_list *result,
-         const char *print_prefix)
+         const char *pprefix)
 {
   (void)ctx;
   /* https://developer.gnome.org/glib/stable/glib-Basic-Types.html */
@@ -662,10 +662,10 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s";
 
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, "!", print_prefix, result->variable,
-                       " ? \"NULL\" : *", print_prefix, result->variable, NULL);
+        sp_str_appends(&buf_tmp, "!", pprefix, result->variable,
+                       " ? \"NULL\" : *", pprefix, result->variable, NULL);
       } else {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       }
       sp_str_appends(&buf_tmp, " ? \"TRUE\" : \"FALSE\"", NULL);
       free(result->complex_raw);
@@ -681,7 +681,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       result->format = "%p";
-      sp_str_appends(&buf_tmp, "(void*)", print_prefix, result->variable, NULL);
+      sp_str_appends(&buf_tmp, "(void*)", pprefix, result->variable, NULL);
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
@@ -692,7 +692,7 @@ __format(struct sp_ts_Context *ctx,
 
       /* Example: string */
       result->format = "%s";
-      sp_str_appends(&buf_tmp, print_prefix, result->variable, NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       if (result->pointer) {
         sp_str_append(&buf_tmp, "->c_str()");
       } else {
@@ -715,7 +715,7 @@ __format(struct sp_ts_Context *ctx,
         sp_str_init(&buf_tmp, 0);
         /* char $field_identifier[$array_len] */
         sp_str_appends(&buf_tmp, "(int)", result->variable_array_length, ", ",
-                       print_prefix, result->variable, NULL);
+                       pprefix, result->variable, NULL);
         free(result->complex_raw);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
         result->complex_printf = true;
@@ -740,12 +740,10 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
-                       print_prefix, result->variable, "->message : \"NULL\"",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                       result->variable, "->message : \"NULL\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, ".message",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, ".message", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -757,11 +755,11 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%d";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
-                       "g_io_channel_unix_get_fd(", print_prefix,
-                       result->variable, ") : ", "-1337", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
+                       "g_io_channel_unix_get_fd(", pprefix, result->variable,
+                       ") : ", "-1337", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "g_io_channel_unix_get_fd(&", print_prefix,
+        sp_str_appends(&buf_tmp, "g_io_channel_unix_get_fd(&", pprefix,
                        result->variable, ")", NULL);
       }
       free(result->complex_raw);
@@ -774,8 +772,8 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
-                       "\"SOME\"", " : NULL", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", "\"SOME\"",
+                       " : NULL", NULL);
       } else {
         sp_str_append(&buf_tmp, "\"SOME\"");
       }
@@ -790,8 +788,8 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       sp_str_appends(&buf_tmp, //
                      "asctime(", //
-                     "gmtime(&", print_prefix, result->variable, ")",
-                     "), (intmax_t)", print_prefix, result->variable, NULL);
+                     "gmtime(&", pprefix, result->variable, ")",
+                     "), (intmax_t)", pprefix, result->variable, NULL);
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
@@ -802,12 +800,11 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%f";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
-                       "IMFIX2F(*", print_prefix, result->variable, ") : 0",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", "IMFIX2F(*",
+                       pprefix, result->variable, ") : 0", NULL);
       } else {
         sp_str_appends(&buf_tmp, //
-                       "IMFIX2F(", print_prefix, result->variable, ")", NULL);
+                       "IMFIX2F(", pprefix, result->variable, ")", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -819,12 +816,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, print_prefix, result->variable, " ? ",
-                       "sp_str_c_str(", print_prefix, result->variable, ")",
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
+                       "sp_str_c_str(", pprefix, result->variable, ")",
                        " : \"NULL\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "sp_str_c_str(&", print_prefix,
-                       result->variable, ")", NULL);
+        sp_str_appends(&buf_tmp, "sp_str_c_str(&", pprefix, result->variable,
+                       ")", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -850,14 +847,14 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "int16") == 0 || //
                strcmp(result->type, "i16") == 0 || //
                strcmp(result->type, "int16_t") == 0) {
-      __format_numeric(result, print_prefix, "%d");
+      __format_numeric(result, pprefix, "%d");
     } else if (strcmp(result->type, "unsigned short") == 0 || //
                strcmp(result->type, "gushort") == 0 || //
                strcmp(result->type, "guint16") == 0 || //
                strcmp(result->type, "uint16") == 0 || //
                strcmp(result->type, "u16") == 0 || //
                strcmp(result->type, "uint16_t") == 0) {
-      __format_numeric(result, print_prefix, "%u");
+      __format_numeric(result, pprefix, "%u");
     } else if (strcmp(result->type, "int") == 0 || //
                strcmp(result->type, "signed int") == 0 || //
                strcmp(result->type, "gint") == 0 || //
@@ -865,7 +862,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "i32") == 0 || //
                strcmp(result->type, "int32") == 0 || //
                strcmp(result->type, "int32_t") == 0) {
-      __format_numeric(result, print_prefix, "%d");
+      __format_numeric(result, pprefix, "%d");
     } else if (strcmp(result->type, "unsigned") == 0 || //
                strcmp(result->type, "unsigned int") == 0 || //
                strcmp(result->type, "guint") == 0 || //
@@ -873,30 +870,30 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "uint32") == 0 || //
                strcmp(result->type, "u32") == 0 || //
                strcmp(result->type, "uint32_t") == 0) {
-      __format_numeric(result, print_prefix, "%u");
+      __format_numeric(result, pprefix, "%u");
     } else if (strcmp(result->type, "long") == 0 || //
                strcmp(result->type, "long int") == 0) {
-      __format_numeric(result, print_prefix, "%ld");
+      __format_numeric(result, pprefix, "%ld");
     } else if (strcmp(result->type, "unsigned long int") == 0 || //
                strcmp(result->type, "long unsigned int") == 0 || //
                strcmp(result->type, "unsigned long") == 0) {
-      __format_numeric(result, print_prefix, "%lu");
+      __format_numeric(result, pprefix, "%lu");
     } else if (strcmp(result->type, "long long") == 0 || //
                strcmp(result->type, "long long int") == 0) {
-      __format_numeric(result, print_prefix, "%lld");
+      __format_numeric(result, pprefix, "%lld");
     } else if (strcmp(result->type, "unsigned long long") == 0 || //
                strcmp(result->type, "unsigned long long int") == 0) {
-      __format_numeric(result, print_prefix, "%llu");
+      __format_numeric(result, pprefix, "%llu");
     } else if (strcmp(result->type, "off_t") == 0) {
-      __format_numeric(result, print_prefix, "%jd");
+      __format_numeric(result, pprefix, "%jd");
     } else if (strcmp(result->type, "goffset") == 0) {
       result->format = "%\"G_GOFFSET_FORMAT\"";
     } else if (strcmp(result->type, "size_t") == 0) {
-      __format_numeric(result, print_prefix, "%zu");
+      __format_numeric(result, pprefix, "%zu");
     } else if (strcmp(result->type, "gsize") == 0) {
       result->format = "%\"G_GSIZE_FORMAT\"";
     } else if (strcmp(result->type, "ssize_t") == 0) {
-      __format_numeric(result, print_prefix, "%zd");
+      __format_numeric(result, pprefix, "%zd");
     } else if (strcmp(result->type, "gssize") == 0) {
       result->format = "%\"G_GSSIZE_FORMAT\"";
     } else if (strcmp(result->type, "int64_t") == 0) {
@@ -917,9 +914,9 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "gfloat") == 0 || //
                strcmp(result->type, "double") == 0 || //
                strcmp(result->type, "gdouble") == 0) {
-      __format_numeric(result, print_prefix, "%f");
+      __format_numeric(result, pprefix, "%f");
     } else if (strcmp(result->type, "long double") == 0) {
-      __format_numeric(result, print_prefix, "%Lf");
+      __format_numeric(result, pprefix, "%Lf");
     } else {
       if (strchr(result->type, ' ') == NULL) {
         const char *prefix = "&";
@@ -932,7 +929,7 @@ __format(struct sp_ts_Context *ctx,
           prefix = "";
         }
         sp_str_appends(&buf_tmp, "sp_debug_", result->type, "(", NULL);
-        sp_str_appends(&buf_tmp, prefix, print_prefix, result->variable, NULL);
+        sp_str_appends(&buf_tmp, prefix, pprefix, result->variable, NULL);
         sp_str_appends(&buf_tmp, ")", NULL);
         free(result->complex_raw);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
