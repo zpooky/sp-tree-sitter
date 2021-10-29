@@ -875,7 +875,7 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
                        "g_variant_iter_n_children(", pprefix, result->variable,
-                       ")", " : \"0\"", NULL);
+                       ")", " : 0", NULL);
         sp_str_appends(&buf_tmp, ", ", pprefix, result->variable, " ? ", "\"\"",
                        " : \"(NULL)\"", NULL);
       } else {
