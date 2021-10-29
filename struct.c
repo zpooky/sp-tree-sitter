@@ -789,7 +789,8 @@ __format(struct sp_ts_Context *ctx,
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
-    } else if (strcmp(result->type, "GKeyFile") == 0) {
+    } else if (strcmp(result->type, "GKeyFile") == 0 ||
+               strcmp(result->type, "GVariantBuilder") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
 
@@ -862,6 +863,24 @@ __format(struct sp_ts_Context *ctx,
       } else {
         sp_str_appends(&buf_tmp, "g_variant_print(&", pprefix, result->variable,
                        ", FALSE)", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GVariantIter") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "children[%zu]%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
+                       "g_variant_iter_n_children(", pprefix, result->variable,
+                       ")", " : \"0\"", NULL);
+        sp_str_appends(&buf_tmp, ", ", pprefix, result->variable, " ? ", "\"\"",
+                       " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "g_variant_iter_n_children(&", pprefix,
+                       result->variable, "), \"\"", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
