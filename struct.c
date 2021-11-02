@@ -905,6 +905,75 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
 
+    } else if (strcmp(result->type, "GList") == 0) {
+      result->format = "%p";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+      } else {
+        sp_str_appends(&buf_tmp, "&", NULL);
+      }
+      sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "pollfd") == 0) {
+      result->format = "%p";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "fd[%u]";
+      if (result->pointer) {
+        /* TODO https://man7.org/linux/man-pages/man2/poll.2.html */
+        /* add enum of possible events */
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                       result->variable, "->fd", " : -1337", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, ".fd", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_ctl_t") == 0) {
+      result->format = "%p";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GHashTable") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      if (result->pointer) {
+        result->format = "len[%u]%s";
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? g_hash_table_size(", pprefix, result->variable, ")",
+                       " : 0", NULL);
+        sp_str_appends(&buf_tmp, ", ", pprefix, result->variable, " ? ", "\"\"",
+                       " : \"(NULL)\"", NULL);
+      } else {
+        result->format = "len[%u]";
+        sp_str_appends(&buf_tmp, "g_hash_table_size(&", pprefix,
+                       result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "GDBusConnection") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
