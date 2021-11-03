@@ -755,6 +755,10 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "mutex_t") == 0 ||
                strcmp(result->type, "mutex") == 0 ||
                strcmp(result->type, "GMutex") == 0 ||
+               strcmp(result->type, "GRecMutex") == 0 ||
+               strcmp(result->type, "GRWLock") == 0 ||
+               strcmp(result->type, "GCond") == 0 ||
+               strcmp(result->type, "GOnce") == 0 ||
                strcmp(result->type, "struct mutex") == 0) {
       /* fprintf(stderr, "type[%s]\n", type); */
 
@@ -985,6 +989,25 @@ __format(struct sp_ts_Context *ctx,
                        result->variable, ")", " : \"NULL\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "g_dbus_connection_get_unique_name(&", pprefix,
+                       result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GPrivate") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        result->format = "%p%s";
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? (void*)g_private_get(", pprefix, result->variable,
+                       ")", " : \"NULL\",", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? \"\" : \"(NULL)\"", NULL);
+      } else {
+        result->format = "%p";
+        sp_str_appends(&buf_tmp, "(void*)g_private_get(&", pprefix,
                        result->variable, ")", NULL);
       }
       free(result->complex_raw);
