@@ -754,6 +754,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "pthread_mutex_t") == 0 ||
                strcmp(result->type, "mutex_t") == 0 ||
                strcmp(result->type, "mutex") == 0 ||
+               strcmp(result->type, "GMutex") == 0 ||
                strcmp(result->type, "struct mutex") == 0) {
       /* fprintf(stderr, "type[%s]\n", type); */
 
@@ -909,9 +910,10 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%p";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
+      sp_str_append(&buf_tmp, "(void*)");
       if (result->pointer) {
       } else {
-        sp_str_appends(&buf_tmp, "&", NULL);
+        sp_str_append(&buf_tmp, "&");
       }
       sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       free(result->complex_raw);
@@ -920,10 +922,9 @@ __format(struct sp_ts_Context *ctx,
       sp_str_free(&buf_tmp);
 
     } else if (strcmp(result->type, "pollfd") == 0) {
-      result->format = "%p";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
-      result->format = "fd[%u]";
+      result->format = "fd[%d]";
       if (result->pointer) {
         /* TODO https://man7.org/linux/man-pages/man2/poll.2.html */
         /* add enum of possible events */
@@ -938,7 +939,6 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "snd_ctl_t") == 0) {
-      result->format = "%p";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
@@ -1386,7 +1386,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
     }
     field_it = field_it->next;
   } //while
-  sp_str_appends(&buf, "}\", ", pprefix, NULL);
+  sp_str_appends(&buf, "}\", (void*)", pprefix, NULL);
 
   field_it = fields;
   while (field_it) {
