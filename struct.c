@@ -976,9 +976,9 @@ __format(struct sp_ts_Context *ctx,
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_name(",
                        pprefix, result->variable, ")", " : \"(NULL)\", ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_device(",
-                       pprefix, result->variable, ")", " : \"1337\", ", NULL);
+                       pprefix, result->variable, ")", " : 1337, ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_subdevice(",
-                       pprefix, result->variable, ")", " : \"1337\"", NULL);
+                       pprefix, result->variable, ")", " : 1337", NULL);
       } else {
         sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_name(&", pprefix, result->variable,
                        "), ", NULL);
@@ -1069,6 +1069,23 @@ __format(struct sp_ts_Context *ctx,
                        pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "snd_ctl_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_ctl_elem_id_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_id_get_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_id_get_name(&", pprefix, result->variable,
                        ")", NULL);
       }
 
