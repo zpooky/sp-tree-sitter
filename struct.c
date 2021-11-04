@@ -967,6 +967,107 @@ __format(struct sp_ts_Context *ctx,
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_ctl_event_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_ctl_card_info_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_card_info_get_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_card_info_get_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_ctl_elem_type_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_type_name(*",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_type_name(", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_ctl_elem_value_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_value_get_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_value_get_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_ctl_event_type_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_type_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_event_type_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_ctl_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_name(",
+                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "snd_ctl_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
     } else if (strcmp(result->type, "GHashTable") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1767,7 +1868,6 @@ main(int argc, const char *argv[])
 }
 
 /* TODO support complex (json) output for line and crunch */
-//TODO print all local variables visible at cursor position (leader+l)
 //TODO print indiciation of in which if case we are located in
 //TODO print indication before return
 
@@ -1775,6 +1875,8 @@ main(int argc, const char *argv[])
 // example: NOTE: assumes xxx and l_xxx is related
 
 // TODO generate 2 print function typedef struct name {} name_t;
+//
+// TODO when leader+m try to paste after all variable inits
 //
 // TODO enum bitset FIRST=1 SECOND=2 THRID=4, var=FIRST|SECOND
 //      if enum has explicit values and if binary they do not owerlap = assume enum bitset
