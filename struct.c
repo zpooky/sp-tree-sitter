@@ -755,6 +755,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "mutex_t") == 0 ||
                strcmp(result->type, "mutex") == 0 ||
                strcmp(result->type, "GMutex") == 0 ||
+               strcmp(result->type, "GThreadPool") == 0 ||
                strcmp(result->type, "GRecMutex") == 0 ||
                strcmp(result->type, "GRWLock") == 0 ||
                strcmp(result->type, "GCond") == 0 ||
@@ -801,8 +802,8 @@ __format(struct sp_ts_Context *ctx,
 
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", "\"SOME\"",
-                       " : NULL", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? \"SOME\" : \"NULL\"", NULL);
       } else {
         sp_str_append(&buf_tmp, "\"SOME\"");
       }
