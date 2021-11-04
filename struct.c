@@ -970,12 +970,21 @@ __format(struct sp_ts_Context *ctx,
     } else if (strcmp(result->type, "snd_ctl_event_t") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
-      result->format = "%s";
+      result->format = "%s:%u,%u";
+
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+                       pprefix, result->variable, ")", " : \"(NULL)\", ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_device(",
+                       pprefix, result->variable, ")", " : \"1337\", ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_subdevice(",
+                       pprefix, result->variable, ")", " : \"1337\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_name(&", pprefix, result->variable,
+                       "), ", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_device(&", pprefix, result->variable,
+                       "), ", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_subdevice(&", pprefix, result->variable,
                        ")", NULL);
       }
 
