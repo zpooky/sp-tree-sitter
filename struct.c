@@ -763,6 +763,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "mutex_t") == 0 ||
                strcmp(result->type, "mutex") == 0 ||
                strcmp(result->type, "GMutex") == 0 ||
+               strcmp(result->type, "GMutexLocker") == 0 ||
                strcmp(result->type, "GThreadPool") == 0 ||
                strcmp(result->type, "GRecMutex") == 0 ||
                strcmp(result->type, "GRWLock") == 0 ||
@@ -934,6 +935,23 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
 
+    } else if (strcmp(result->type, "GDBusMethodInvocation") == 0) {
+      result->format = "%s";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? g_dbus_method_invocation_get_sender(", pprefix,
+                       result->variable, ")", " : \"NULL\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "g_dbus_method_invocation_get_sender(&",
+                       pprefix, result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
     } else if (strcmp(result->type, "pollfd") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -973,19 +991,22 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s:%u,%u";
 
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\", ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_device(",
-                       pprefix, result->variable, ")", " : 1337, ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_elem_get_subdevice(",
-                       pprefix, result->variable, ")", " : 1337", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_event_elem_get_name(", pprefix,
+                       result->variable, ")", " : \"(NULL)\", ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_event_elem_get_device(", pprefix,
+                       result->variable, ")", " : 1337, ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_event_elem_get_subdevice(", pprefix,
+                       result->variable, ")", " : 1337", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_name(&", pprefix, result->variable,
-                       "), ", NULL);
-        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_device(&", pprefix, result->variable,
-                       "), ", NULL);
-        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_subdevice(&", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_name(&", pprefix,
+                       result->variable, "), ", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_device(&", pprefix,
+                       result->variable, "), ", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_elem_get_subdevice(&", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
@@ -998,11 +1019,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_card_info_get_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_card_info_get_name(", pprefix,
+                       result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_card_info_get_name(&", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_card_info_get_name(&", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
@@ -1015,11 +1037,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_type_name(*",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_elem_type_name(*", pprefix, result->variable,
+                       ")", " : \"(NULL)\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_elem_type_name(", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_type_name(", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
@@ -1031,11 +1054,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_value_get_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_elem_value_get_name(", pprefix,
+                       result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_elem_value_get_name(&", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_value_get_name(&", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
@@ -1048,11 +1072,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_event_type_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_event_type_name(", pprefix, result->variable,
+                       ")", " : \"(NULL)\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_event_type_name(&", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_event_type_name(&", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
@@ -1082,11 +1107,12 @@ __format(struct sp_ts_Context *ctx,
       sp_str_init(&buf_tmp, 0);
       result->format = "%s";
       if (result->pointer) {
-        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? snd_ctl_elem_id_get_name(",
-                       pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? snd_ctl_elem_id_get_name(", pprefix,
+                       result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
-        sp_str_appends(&buf_tmp, "snd_ctl_elem_id_get_name(&", pprefix, result->variable,
-                       ")", NULL);
+        sp_str_appends(&buf_tmp, "snd_ctl_elem_id_get_name(&", pprefix,
+                       result->variable, ")", NULL);
       }
 
       free(result->complex_raw);
