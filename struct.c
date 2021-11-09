@@ -676,15 +676,18 @@ __format(struct sp_ts_Context *ctx,
     }
   } else if (result->type) {
     if (result->pointer > 1) {
-      sp_str buf_tmp;
-      sp_str_init(&buf_tmp, 0);
-      result->format = "%p";
-      sp_str_appends(&buf_tmp, "(void*)", pprefix, result->variable, NULL);
-      free(result->complex_raw);
-      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
-      result->complex_printf = true;
+      if (strcmp(result->type, "GError") == 0) {
+      } else {
+        sp_str buf_tmp;
+        sp_str_init(&buf_tmp, 0);
+        result->format = "%p";
+        sp_str_appends(&buf_tmp, "(void*)", pprefix, result->variable, NULL);
+        free(result->complex_raw);
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
 
-      sp_str_free(&buf_tmp);
+        sp_str_free(&buf_tmp);
+      }
     } else if (strcmp(result->type, "gboolean") == 0 || //
                strcmp(result->type, "bool") == 0 || //
                strcmp(result->type, "boolean") == 0) {
@@ -936,6 +939,7 @@ __format(struct sp_ts_Context *ctx,
       sp_str_free(&buf_tmp);
 
     } else if (strcmp(result->type, "GDBusMethodInvocation") == 0) {
+      /* https://www.freedesktop.org/software/gstreamer-sdk/data/docs/2012.5/gio/GDBusMethodInvocation.html#g-dbus-method-invocation-get-sender */
       result->format = "%s";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
