@@ -1212,6 +1212,23 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
 
+    } else if (strcmp(result->type, "sd_bus_message") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? sd_bus_message_get_signature(", pprefix,
+                       result->variable, ", true)", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "sd_bus_message_get_signature(&", pprefix,
+                       result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
     } else if (strcmp(result->type, "uchar") == 0 || //
                strcmp(result->type, "unsigned char") == 0 || //
                strcmp(result->type, "guchar") == 0 || //
