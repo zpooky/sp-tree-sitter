@@ -697,7 +697,7 @@ __format(struct sp_ts_Context *ctx,
 
       if (result->pointer) {
         sp_str_appends(&buf_tmp, "!", pprefix, result->variable,
-                       " ? \"NULL\" : *", pprefix, result->variable, NULL);
+                       " ? \"(NULL)\" : *", pprefix, result->variable, NULL);
       } else {
         sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       }
@@ -782,7 +782,7 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s";
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
-                       result->variable, "->message : \"NULL\"", NULL);
+                       result->variable, "->message : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, pprefix, result->variable, ".message", NULL);
       }
@@ -815,7 +815,7 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%s";
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " ? \"SOME\" : \"NULL\"", NULL);
+                       " ? \"SOME\" : \"(NULL)\"", NULL);
       } else {
         sp_str_append(&buf_tmp, "\"SOME\"");
       }
@@ -860,7 +860,7 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
                        "sp_str_c_str(", pprefix, result->variable, ")",
-                       " : \"NULL\"", NULL);
+                       " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "sp_str_c_str(&", pprefix, result->variable,
                        ")", NULL);
@@ -877,7 +877,7 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
                        "g_variant_print(", pprefix, result->variable,
-                       ", FALSE)", " : \"NULL\"", NULL);
+                       ", FALSE)", " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "g_variant_print(&", pprefix, result->variable,
                        ", FALSE)", NULL);
@@ -946,7 +946,7 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? g_dbus_method_invocation_get_sender(", pprefix,
-                       result->variable, ")", " : \"NULL\"", NULL);
+                       result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "g_dbus_method_invocation_get_sender(&",
                        pprefix, result->variable, ")", NULL);
@@ -1152,7 +1152,7 @@ __format(struct sp_ts_Context *ctx,
       if (result->pointer) {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? g_dbus_connection_get_unique_name(", pprefix,
-                       result->variable, ")", " : \"NULL\"", NULL);
+                       result->variable, ")", " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "g_dbus_connection_get_unique_name(&", pprefix,
                        result->variable, ")", NULL);
@@ -1168,7 +1168,7 @@ __format(struct sp_ts_Context *ctx,
         result->format = "%p%s";
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? (void*)g_private_get(", pprefix, result->variable,
-                       ")", " : \"NULL\",", NULL);
+                       ")", " : \"(NULL)\",", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? \"\" : \"(NULL)\"", NULL);
       } else {
@@ -1184,14 +1184,28 @@ __format(struct sp_ts_Context *ctx,
     } else if (strcmp(result->type, "GFile") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
       if (result->pointer) {
-        result->format = "%s";
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? g_file_get_path(", pprefix, result->variable, ")",
-                       " : \"NULL\"", NULL);
+                       " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, "g_file_get_path(&", pprefix, result->variable,
                        ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GParamSpec") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                       result->variable, "->name", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
