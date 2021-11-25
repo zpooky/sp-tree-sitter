@@ -774,6 +774,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "GOnce") == 0 ||
                strcmp(result->type, "struct mutex") == 0) {
       /* fprintf(stderr, "type[%s]\n", type); */
+    } else if (strcmp(result->type, "sd_bus") == 0) {
+      //TODO
 
     } else if (strcmp(result->type, "GError") == 0) {
       sp_str buf_tmp;
