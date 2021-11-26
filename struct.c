@@ -551,9 +551,12 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
         for (i = 0; i < ts_node_child_count(tmp); ++i) {
           TSNode child = ts_node_child(tmp, i);
           if (start_found) {
-            free(result->variable_array_length);
-            result->variable_array_length = sp_struct_value(ctx, child);
-            start_found                   = false;
+            if (strcmp(ts_node_type(child), "]") == 0) {
+            } else {
+              free(result->variable_array_length);
+              result->variable_array_length = sp_struct_value(ctx, child);
+            }
+            start_found = false;
           } else if (strcmp(ts_node_type(child), "[") == 0) {
             start_found = true;
           }
@@ -561,12 +564,14 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
 
         field_id = find_direct_chld_by_type(tmp, identifier);
         if (!ts_node_is_null(field_id)) {
-          result->is_array = true;
+          if (result->variable_array_length) {
+            /* char a[LENGTH] = ""; */
+            result->is_array = true;
+          } else {
+            /* char a[] = ""; // auto length */
+            ++result->pointer;
+          }
           result->variable = sp_struct_value(ctx, field_id);
-          /* TODO: '[' XXX ']' */
-        }
-        if (!result->variable_array_length) {
-          result->variable_array_length = strdup("0");
         }
       } else {
         TSNode fun_decl;
