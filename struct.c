@@ -344,13 +344,13 @@ __field_type(struct sp_ts_Context *ctx,
 
   tmp = find_direct_chld_by_type(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
-    fprintf(stderr, "1\n");
+    /* fprintf(stderr, "1\n"); */
     /* $primitive_type $field_identifier; */
     type = sp_struct_value(ctx, tmp);
   } else {
     tmp = find_direct_chld_by_type(subject, "sized_type_specifier");
     if (!ts_node_is_null(tmp)) {
-      fprintf(stderr, "2\n");
+      /* fprintf(stderr, "2\n"); */
       sp_str tmp_str;
       uint32_t i;
 
@@ -532,9 +532,25 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
   /* debug_subtypes_rec(ctx, subject, 0); */
   tmp = find_direct_chld_by_type(subject, identifier);
   if (!ts_node_is_null(tmp)) {
-    result->variable = sp_struct_value(ctx, tmp);
+    /* int first, *second, *const *third, *fourth = &first; */
+    uint32_t i;
+    struct arg_list *rit = result;
+    for (i = 0; i < ts_node_child_count(subject); ++i) {
+      TSNode child          = ts_node_child(subject, i);
+      const char *node_type = ts_node_type(child);
+      if (strcmp(node_type, identifier) == 0) {
+        if (rit->variable) {
+          rit->next = calloc(1, sizeof(*rit));
+          rit       = rit->next;
+        }
+        rit->variable = sp_struct_value(ctx, child);
+      }
+    }
     /* fprintf(stderr, "1: %s\n", result->variable); */
   } else {
+    /* TODO we get here when int *first, *second, *const *third, *fourth = &first;
+     *                           ^
+     */
     tmp = find_direct_chld_by_type(subject, "pointer_declarator");
     if (!ts_node_is_null(tmp)) {
       tmp = __rec_search(ctx, tmp, identifier, 1, &result->pointer);
@@ -582,7 +598,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
           par_decl =
             find_direct_chld_by_type(fun_decl, "parenthesized_declarator");
 
-          fprintf(stderr, "%s: 1\n", __func__);
+          /* fprintf(stderr, "%s: 1\n", __func__); */
           if (!ts_node_is_null(par_decl)) {
             tmp = find_direct_chld_by_type(par_decl, "pointer_declarator");
             if (!ts_node_is_null(tmp)) {
@@ -797,6 +813,22 @@ __format(struct sp_ts_Context *ctx,
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "XmlNode") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                       result->variable, "->name : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
     } else if (strcmp(result->type, "GIOChannel") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1435,14 +1467,17 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
   struct arg_list *result = NULL;
 
   if ((result = __field_name(ctx, subject, "identifier"))) {
-    /* fprintf(stderr, "|%s\n", result->variable); */
-    result->type = __field_type(ctx, subject, result, "");
-    /* fprintf(stderr, "|%s: %s\n", result->type, result->variable); */
-    __format(ctx, result, "");
-  }
-
-  if (result && result->format && result->variable) {
-    result->complete = true;
+    struct arg_list *it = result;
+    while (it) {
+      /* fprintf(stderr, "|%s\n", it->variable); */
+      it->type = __field_type(ctx, subject, it, "");
+      /* fprintf(stderr, "|%s: %s\n", it->type, it->variable); */
+      __format(ctx, it, "");
+      if (it->format && it->variable) {
+        it->complete = true;
+      }
+      it = it->next;
+    }
   }
 
   return result;
@@ -1541,6 +1576,9 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
 #endif
           if ((arg = __parameter_to_arg(ctx, param_decl))) {
             field_it = field_it->next = arg;
+            while (field_it->next) {
+              field_it = field_it->next;
+            }
           }
         }
       } //for
@@ -1555,6 +1593,7 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
   sp_do_print_function(ctx, field_dummy.next);
   return res;
 }
+
 static TSNode
 sp_find_sibling_of_type(TSNode subject, const char *type)
 {
@@ -1619,6 +1658,9 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
 #endif
         if ((arg = __parameter_to_arg(ctx, sibling))) {
           field_it = field_it->next = arg;
+          while (field_it->next) {
+            field_it = field_it->next;
+          }
         }
         //TODO maybe add is_initated:bool to struct arg_list (which is true for function parametrs, unrelevant for struct members)
         //  TODO then add support to detect for variable init after declaration
@@ -1649,20 +1691,16 @@ __field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix)
   /* TODO result->format, result->variable strdup() */
 
   if ((result = __field_name(ctx, subject, "field_identifier"))) {
-    struct arg_list *it;
+    struct arg_list *it = result;
     /* fprintf(stderr,"%s\n", result->variable); */
     result->type = __field_type(ctx, subject, result, pprefix);
     /* fprintf(stderr, "type[%s]\n", type); */
 
-    it = result;
-    while (1) {
+    while (it) {
       __format(ctx, it, pprefix);
       it->complete = false;
       if (!it->dead && it->format && it->variable) {
         it->complete = true;
-      }
-      if (!it->next) {
-        break;
       }
       it = it->next;
     }
