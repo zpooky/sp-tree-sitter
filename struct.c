@@ -798,6 +798,8 @@ __format(struct sp_ts_Context *ctx,
     } else if (strcmp(result->type, "sd_bus") == 0) {
       //TODO
 
+    } else if (strcmp(result->type, "GObject") == 0) {
+      /* nop */
     } else if (strcmp(result->type, "GError") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1394,7 +1396,8 @@ __format(struct sp_ts_Context *ctx,
       __format_numeric(result, pprefix, "%ld");
     } else if (strcmp(result->type, "unsigned long int") == 0 || //
                strcmp(result->type, "long unsigned int") == 0 || //
-               strcmp(result->type, "unsigned long") == 0) {
+               strcmp(result->type, "unsigned long") == 0 ||
+               strcmp(result->type, "gulong") == 0) {
       __format_numeric(result, pprefix, "%lu");
     } else if (strcmp(result->type, "long long") == 0 || //
                strcmp(result->type, "long long int") == 0) {
