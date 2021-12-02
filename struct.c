@@ -1418,6 +1418,8 @@ __format(struct sp_ts_Context *ctx,
       result->format = "%\"PRId64\"";
     } else if (strcmp(result->type, "uint64_t") == 0) {
       result->format = "%\"PRIu64\"";
+    } else if (strcmp(result->type, "gint64") == 0) {
+      result->format = "%\"G_GINT64_FORMAT\"";
     } else if (strcmp(result->type, "guint64") == 0) {
       result->format = "%\"G_GUINT64_FORMAT\"";
     } else if (strcmp(result->type, "uintptr_t") == 0) {
