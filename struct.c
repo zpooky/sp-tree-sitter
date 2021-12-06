@@ -728,6 +728,40 @@ __format(struct sp_ts_Context *ctx,
       result->complex_printf = true;
 
       sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "mode_t") == 0) {
+      if (result->pointer) {
+      } else {
+        sp_str buf_tmp;
+        sp_str_init(&buf_tmp, 0);
+        result->format = "%c%c%c%c%c%c%c%c%c";
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IRUSR) ? 'r' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IWUSR) ? 'w' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IXUSR) ? 'x' : '-', ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IRGRP) ? 'r' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IWGRP) ? 'w' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IXGRP) ? 'x' : '-', ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IROTH) ? 'r' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " &  S_IWOTH) ? 'w' : '-', ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " & S_IXOTH) ? 'x' : '-'", NULL);
+
+        free(result->complex_raw);
+        result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+        result->complex_printf = true;
+
+        sp_str_free(&buf_tmp);
+      }
     } else if (strcmp(result->type, "void") == 0) {
       if (result->pointer) {
         result->format = "%p";
@@ -829,8 +863,8 @@ struct _GTypeQuery {
       } else {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        "->g_type_instance.g_class", //
-                       " ? g_type_name(", pprefix, result->variable, ".g_class->g_type)",
-                       " : \"(NULL)\"", NULL);
+                       " ? g_type_name(", pprefix, result->variable,
+                       ".g_class->g_type)", " : \"(NULL)\"", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
