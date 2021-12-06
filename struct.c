@@ -1476,6 +1476,22 @@ struct _GValue {
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GDir") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? g_dir_read_name(", pprefix, result->variable, ")",
+                       " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "g_dir_read_name(&", pprefix, result->variable,
+                       ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "GParamSpec") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
