@@ -862,9 +862,9 @@ struct _GTypeQuery {
                        " : \"(NULL)\"", NULL);
       } else {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       "->g_type_instance.g_class", //
+                       ".g_type_instance.g_class", //
                        " ? g_type_name(", pprefix, result->variable,
-                       ".g_class->g_type)", " : \"(NULL)\"", NULL);
+                       ".g_type_instance.g_class->g_type)", " : \"(NULL)\"", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
