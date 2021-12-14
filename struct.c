@@ -1184,7 +1184,7 @@ struct _GValue {
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
-    } else if (strcmp(result->type, "GArray") == 0) {
+    } else if (strcmp(result->type, "GArray") == 0 || strcmp(result->type, "GPtrArray") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
