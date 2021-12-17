@@ -12,6 +12,8 @@
 #include <sys/stat.h>
 #include <stdint.h>
 #include <assert.h>
+#include <limits.h>
+#include <errno.h>
 
 enum sp_ts_SourceDomain {
   DEFAULT_DOMAIN = 0,
@@ -198,6 +200,173 @@ struct sp_str_list {
   struct sp_str_list *next;
 };
 
+static bool
+parse_int(struct sp_ts_Context *ctx, TSNode subject, int64_t *result)
+{
+  char buffer[64] = {'\0'};
+  uint32_t s      = ts_node_start_byte(subject);
+  uint32_t e      = ts_node_end_byte(subject);
+  int len         = (int)(e - s);
+  char *str_end   = NULL;
+
+  sprintf(buffer, "%.*s", len, &ctx->file.content[s]);
+  *result = strtoll(buffer, &str_end, 10);
+
+  if (errno == ERANGE && (*result == INT64_MAX || *result == INT64_MIN)) {
+    return false;
+  } else if (*result == 0 && errno != 0) {
+    return false;
+  } else if (str_end == buffer) {
+    return false;
+  }
+
+  return true;
+}
+
+static bool
+is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
+{
+  TSNode enum_list;
+#define MAX_LITERALS 100
+  int64_t literals[MAX_LITERALS] = {0};
+  size_t n_literals              = 0;
+
+  /* debug_subtypes_rec(ctx, subject, 0); */
+  enum_list = find_direct_chld_by_type(subject, "enumerator_list");
+  if (!ts_node_is_null(enum_list)) {
+    uint32_t i;
+    for (i = 0; i < ts_node_child_count(enum_list); ++i) {
+      TSNode enumerator = ts_node_child(enum_list, i);
+      if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
+        TSNode tmp;
+        tmp = find_direct_chld_by_type(enumerator, "parenthesized_expression");
+        if (!ts_node_is_null(tmp)) {
+          /* [parenthesized_expression]
+           *   [(]
+           *   [binary_expression]
+           *     [number_literal]: 1
+           *     [<<]
+           *     [number_literal]: 1
+           *   [)]
+           *
+           * [parenthesized_expression]
+           *   [(]
+           *   [binary_expression]
+           *     [identifier]: G_PARAM_READABLE
+           *     [|]
+           *     [identifier]: G_PARAM_WRITABLE
+           *   [)]
+           */
+          /* TODO */
+        } else {
+          tmp = find_direct_chld_by_type(enumerator, "binary_expression");
+          if (!ts_node_is_null(tmp)) {
+            /* [binary_expression]
+             *   [number_literal]: 1
+             *   [<<]
+             *   [number_literal]: 30
+             */
+            uint32_t a;
+            int64_t literal0;
+            int64_t literal1;
+            int64_t tmp_mask = 0;
+            TSNode node0;
+            TSNode op;
+            TSNode node1;
+            if (ts_node_child_count(tmp) != 3) {
+              return false;
+            }
+
+            node0 = ts_node_child(tmp, 0);
+            if (!parse_int(ctx, node0, &literal0)) {
+              return false;
+            }
+            op = ts_node_child(tmp, 1);
+            if (strcmp(ts_node_type(op), "<<") != 0) {
+              return false;
+            }
+            node1 = ts_node_child(tmp, 2);
+            if (!parse_int(ctx, node0, &literal1)) {
+              return false;
+            }
+
+            literals[n_literals++] = literal0 << literal1;
+            for (a = 0; a < n_literals; ++a) {
+              if (tmp_mask & literals[a]) {
+                return false;
+              }
+              tmp_mask &= literals[a];
+            }
+          } else {
+            tmp = find_direct_chld_by_type(enumerator, "number_literal");
+            if (!ts_node_is_null(tmp)) {
+              uint32_t a;
+              /* [number_literal]: 1 */
+              int64_t literal;
+              int64_t tmp_mask = 0;
+              if (!parse_int(ctx, tmp, &literal)) {
+                return false;
+              }
+              literals[n_literals++] = literal;
+              for (a = 0; a < n_literals; ++a) {
+                if (tmp_mask & literals[a]) {
+                  return false;
+                }
+                tmp_mask &= literals[a];
+              }
+
+            } else {
+              tmp = find_direct_chld_by_type(enumerator, "call_expression");
+              if (!ts_node_is_null(tmp)) {
+                /* [call_expression]
+                 *   [parenthesized_expression]
+                 *     [(]
+                 *     [identifier]: gint
+                 *     [)]
+                 *   [argument_list]
+                 *     [(]
+                 *     [binary_expression]
+                 *       [number_literal]: 1u
+                 *       [<<]
+                 *       [number_literal]: 31
+                 *     [)]
+                 */
+                /* TODO */
+              } else {
+                /* [identifier]: G_PARAM_PRIVATE
+                 * [=]
+                 * [identifier]: G_PARAM_STATIC_NAME
+                 */
+                uint32_t a;
+                for (a = 0; a < ts_node_child_count(enumerator); ++a) {
+                  TSNode child     = ts_node_child(enumerator, a);
+                  const char *type = ts_node_type(child);
+                  if (strcmp(type, "=") == 0) {
+                    ++a;
+                    break;
+                  }
+                }
+                if (a != ts_node_child_count(enumerator)) {
+                  TSNode child = ts_node_child(enumerator, a);
+                  if (strcmp(ts_node_type(child), "identifier") == 0) {
+                    /* ENUM = VALUE;
+                       * we do not know if VALUE is a mask
+                       */
+                    return true;
+                  }
+                }
+                return false;
+              }
+            }
+          }
+        }
+      }
+    } //for
+  }
+
+  return true;
+}
+
 static int
 sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
 {
@@ -273,23 +442,33 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   sp_str_append(&buf, type_name_t ? "" : "enum ");
   sp_str_append(&buf, type_name);
   sp_str_append(&buf, " *in) {\n");
-  sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
-  sp_str_append(&buf, "  switch (*in) {\n");
-  enums_it = dummy.next;
-  while (enums_it) {
-    sp_str_append(&buf, "    case ");
-    if (enum_class) {
-      sp_str_appends(&buf, type_name, "::", NULL);
+  if (is_enum_bitmask(ctx, subject)) {
+    sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
+    sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
+    enums_it = dummy.next;
+    for (; enums_it; enums_it = enums_it->next) {
+      sp_str_appends(&buf, "  if (*in & ", enums_it->value, ") ", NULL);
+      sp_str_appends(&buf, "strcat(buf, \"|", enums_it->value, "\");\n", NULL);
     }
-    sp_str_append(&buf, enums_it->value);
-    sp_str_append(&buf, ": return \"");
-    sp_str_append(&buf, enums_it->value);
-    sp_str_append(&buf, "\";\n");
-    enums_it = enums_it->next;
-  }
 
-  sp_str_append(&buf, "    default: return \"__UNDEF\";\n");
-  sp_str_append(&buf, "  }\n");
+  } else {
+    sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
+    sp_str_append(&buf, "  switch (*in) {\n");
+    enums_it = dummy.next;
+    for (; enums_it; enums_it = enums_it->next) {
+      sp_str_append(&buf, "    case ");
+      if (enum_class) {
+        sp_str_appends(&buf, type_name, "::", NULL);
+      }
+      sp_str_append(&buf, enums_it->value);
+      sp_str_append(&buf, ": return \"");
+      sp_str_append(&buf, enums_it->value);
+      sp_str_append(&buf, "\";\n");
+    }
+
+    sp_str_append(&buf, "    default: return \"__UNDEF\";\n");
+    sp_str_append(&buf, "  }\n");
+  }
   sp_str_append(&buf, "}\n");
 
   fprintf(stdout, "%s", sp_str_c_str(&buf));
@@ -304,6 +483,7 @@ Lout:
     free(enums_it);
     enums_it = next;
   }
+
   return res;
 }
 
@@ -864,7 +1044,8 @@ struct _GTypeQuery {
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        ".g_type_instance.g_class", //
                        " ? g_type_name(", pprefix, result->variable,
-                       ".g_type_instance.g_class->g_type)", " : \"(NULL)\"", NULL);
+                       ".g_type_instance.g_class->g_type)", " : \"(NULL)\"",
+                       NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1184,7 +1365,8 @@ struct _GValue {
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
-    } else if (strcmp(result->type, "GArray") == 0 || strcmp(result->type, "GPtrArray") == 0) {
+    } else if (strcmp(result->type, "GArray") == 0 ||
+               strcmp(result->type, "GPtrArray") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
