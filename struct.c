@@ -58,6 +58,46 @@ struct arg_list {
 static struct arg_list *
 __field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix);
 
+static char *
+node_value(struct sp_ts_Context *ctx, TSNode node)
+{
+  uint32_t s   = ts_node_start_byte(node);
+  uint32_t e   = ts_node_end_byte(node);
+  uint32_t len = e - s;
+  char *it     = &ctx->file.content[s];
+  //trim
+  while (len) {
+    if (*it == ' ' || *it == '\n' || *it == '\t') {
+      ++it;
+      --len;
+    } else {
+      break;
+    }
+  }
+  while (len) {
+    char c = it[len - 1];
+    if (c == ' ' || c == '\n' || c == '\t') {
+      --len;
+    } else {
+      break;
+    }
+  }
+  return strndup(it, len);
+}
+
+static char *
+sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
+{
+  uint32_t s   = ts_node_start_byte(subject);
+  uint32_t e   = ts_node_end_byte(subject);
+  uint32_t len = e - s;
+  assert(e >= s);
+  if (len == 0) {
+    return NULL;
+  }
+  return strndup(&ctx->file.content[s], len);
+}
+
 static void
 debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
 {
@@ -85,6 +125,7 @@ debug_subtypes_rec(struct sp_ts_Context *ctx, TSNode node, size_t indent)
     debug_subtypes_rec(ctx, child, indent + 1);
   }
 }
+
 struct list_TSNode;
 struct list_TSNode {
   TSNode node;
@@ -181,19 +222,6 @@ find_direct_chld_by_type(TSNode subject, const char *needle)
   return empty;
 }
 
-static char *
-sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
-{
-  uint32_t s   = ts_node_start_byte(subject);
-  uint32_t e   = ts_node_end_byte(subject);
-  uint32_t len = e - s;
-  assert(e >= s);
-  if (len == 0) {
-    return NULL;
-  }
-  return strndup(&ctx->file.content[s], len);
-}
-
 struct sp_str_list;
 struct sp_str_list {
   char *value;
@@ -231,10 +259,22 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
   int64_t literals[MAX_LITERALS] = {0};
   size_t n_literals              = 0;
 
-  /* debug_subtypes_rec(ctx, subject, 0); */
+  debug_subtypes_rec(ctx, subject, 0);
   enum_list = find_direct_chld_by_type(subject, "enumerator_list");
   if (!ts_node_is_null(enum_list)) {
+    char *enum_cache[MAX_LITERALS] = {NULL};
+    size_t n_enum_cache            = 0;
     uint32_t i;
+
+    for (i = 0; i < ts_node_child_count(enum_list); ++i) {
+      TSNode enumerator = ts_node_child(enum_list, i);
+      if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
+        TSNode id = ts_node_child(enumerator, 0);
+        //TODO reclaim
+        enum_cache[n_enum_cache++] = sp_struct_value(ctx, id);
+      }
+    }
+
     for (i = 0; i < ts_node_child_count(enum_list); ++i) {
       TSNode enumerator = ts_node_child(enum_list, i);
       if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
@@ -257,39 +297,67 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
            *     [identifier]: G_PARAM_WRITABLE
            *   [)]
            */
-          /* TODO */
-        } else {
-          tmp = find_direct_chld_by_type(enumerator, "binary_expression");
-          if (!ts_node_is_null(tmp)) {
-            /* [binary_expression]
+          TSNode node0;
+          TSNode op;
+          TSNode node1;
+
+          if (ts_node_child_count(tmp) != 3) {
+            return false;
+          }
+
+          node0 = ts_node_child(tmp, 0);
+          if (strcmp(ts_node_type(node0), "(") != 0) {
+            return false;
+          }
+
+          op = ts_node_child(tmp, 1);
+          if (strcmp(ts_node_type(op), "binary_expression") != 0) {
+            return false;
+          }
+          node1 = ts_node_child(tmp, 2);
+          if (strcmp(ts_node_type(node1), ")") != 0) {
+            return false;
+          }
+          enumerator = tmp;
+        }
+        tmp = find_direct_chld_by_type(enumerator, "binary_expression");
+        if (!ts_node_is_null(tmp)) {
+          /* [binary_expression]
              *   [number_literal]: 1
              *   [<<]
              *   [number_literal]: 30
+             *
+             * [binary_expression]
+             *   [binary_expression]
+             *     [identifier]: G_PARAM_READABLE
+             *     [|]
+             *     [identifier]: G_PARAM_WRITABLE
+             *   [|]
+             *   [identifier]: G_PARAM_CONSTRUCT
              */
+          TSNode node0;
+          TSNode op;
+          TSNode node1;
+          if (ts_node_child_count(tmp) != 3) {
+            return false;
+          }
+
+          node0 = ts_node_child(tmp, 0);
+          op    = ts_node_child(tmp, 1);
+          node1 = ts_node_child(tmp, 2);
+
+          /* printf("%s\n", ts_node_type(op)); */
+          if (strcmp(ts_node_type(op), "<<") == 0) {
             uint32_t a;
             int64_t literal0;
             int64_t literal1;
             int64_t tmp_mask = 0;
-            TSNode node0;
-            TSNode op;
-            TSNode node1;
-            if (ts_node_child_count(tmp) != 3) {
-              return false;
-            }
-
-            node0 = ts_node_child(tmp, 0);
             if (!parse_int(ctx, node0, &literal0)) {
               return false;
             }
-            op = ts_node_child(tmp, 1);
-            if (strcmp(ts_node_type(op), "<<") != 0) {
+            if (!parse_int(ctx, node1, &literal1)) {
               return false;
             }
-            node1 = ts_node_child(tmp, 2);
-            if (!parse_int(ctx, node0, &literal1)) {
-              return false;
-            }
-
             literals[n_literals++] = literal0 << literal1;
             for (a = 0; a < n_literals; ++a) {
               if (tmp_mask & literals[a]) {
@@ -297,28 +365,33 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
               }
               tmp_mask &= literals[a];
             }
+          } else if (strcmp(ts_node_type(op), "|") == 0) {
+            //TODO
           } else {
-            tmp = find_direct_chld_by_type(enumerator, "number_literal");
-            if (!ts_node_is_null(tmp)) {
-              uint32_t a;
-              /* [number_literal]: 1 */
-              int64_t literal;
-              int64_t tmp_mask = 0;
-              if (!parse_int(ctx, tmp, &literal)) {
+            return false;
+          }
+        } else {
+          tmp = find_direct_chld_by_type(enumerator, "number_literal");
+          if (!ts_node_is_null(tmp)) {
+            uint32_t a;
+            /* [number_literal]: 1 */
+            int64_t literal;
+            int64_t tmp_mask = 0;
+            if (!parse_int(ctx, tmp, &literal)) {
+              return false;
+            }
+            literals[n_literals++] = literal;
+            for (a = 0; a < n_literals; ++a) {
+              if (tmp_mask & literals[a]) {
                 return false;
               }
-              literals[n_literals++] = literal;
-              for (a = 0; a < n_literals; ++a) {
-                if (tmp_mask & literals[a]) {
-                  return false;
-                }
-                tmp_mask &= literals[a];
-              }
+              tmp_mask &= literals[a];
+            }
 
-            } else {
-              tmp = find_direct_chld_by_type(enumerator, "call_expression");
-              if (!ts_node_is_null(tmp)) {
-                /* [call_expression]
+          } else {
+            tmp = find_direct_chld_by_type(enumerator, "call_expression");
+            if (!ts_node_is_null(tmp)) {
+              /* [call_expression]
                  *   [parenthesized_expression]
                  *     [(]
                  *     [identifier]: gint
@@ -331,31 +404,39 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
                  *       [number_literal]: 31
                  *     [)]
                  */
-                /* TODO */
+              /* TODO */
+            } else {
+              /* [identifier]: G_PARAM_PRIVATE
+               * [=]
+               * [identifier]: G_PARAM_STATIC_NAME
+               */
+              TSNode op;
+              TSNode node1;
+              if (ts_node_child_count(enumerator) != 3) {
+                return false;
+              }
+
+              op = ts_node_child(enumerator, 1);
+              if (strcmp(ts_node_type(op), "=") != 0) {
+                return false;
+              }
+              node1 = ts_node_child(enumerator, 2);
+              if (strcmp(ts_node_type(node1), "identifier") != 0) {
+                return false;
               } else {
-                /* [identifier]: G_PARAM_PRIVATE
-                 * [=]
-                 * [identifier]: G_PARAM_STATIC_NAME
-                 */
-                uint32_t a;
-                for (a = 0; a < ts_node_child_count(enumerator); ++a) {
-                  TSNode child     = ts_node_child(enumerator, a);
-                  const char *type = ts_node_type(child);
-                  if (strcmp(type, "=") == 0) {
-                    ++a;
+                size_t a;
+                char *ref  = node_value(ctx, node1);
+                bool found = false;
+                for (a = 0; a < n_enum_cache; ++a) {
+                  if (strcmp(enum_cache[a], ref) == 0) {
+                    found = true;
                     break;
                   }
                 }
-                if (a != ts_node_child_count(enumerator)) {
-                  TSNode child = ts_node_child(enumerator, a);
-                  if (strcmp(ts_node_type(child), "identifier") == 0) {
-                    /* ENUM = VALUE;
-                       * we do not know if VALUE is a mask
-                       */
-                    return true;
-                  }
+                free(ref);
+                if (!found) {
+                  return false;
                 }
-                return false;
               }
             }
           }
@@ -450,7 +531,7 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
       sp_str_appends(&buf, "  if (*in & ", enums_it->value, ") ", NULL);
       sp_str_appends(&buf, "strcat(buf, \"|", enums_it->value, "\");\n", NULL);
     }
-
+    sp_str_append(&buf, "  return buf;\n");
   } else {
     sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
     sp_str_append(&buf, "  switch (*in) {\n");
