@@ -179,9 +179,8 @@ is_cpp_file(const char *file)
 static enum sp_ts_SourceDomain
 get_domain(const char *file)
 {
-  return strcasestr(file, "/linux-axis") != NULL
-           ? LINUX_KERNEL_DOMAIN
-           : strcasestr(file, "/dists/") != NULL ? SYSLOG_DOMAIN
+  return strcasestr(file, "/linux-axis") != NULL ? LINUX_KERNEL_DOMAIN
+         : strcasestr(file, "/dists/") != NULL   ? SYSLOG_DOMAIN
                                                  : DEFAULT_DOMAIN;
 }
 
@@ -214,6 +213,25 @@ find_direct_chld_by_type(TSNode subject, const char *needle)
   uint32_t i;
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child          = ts_node_child(subject, i);
+    const char *node_type = ts_node_type(child);
+    if (strcmp(node_type, needle) == 0) {
+      return child;
+    }
+  }
+  return empty;
+}
+
+static TSNode
+find_rec_chld_by_type(TSNode subject, const char *needle)
+{
+  TSNode empty = {0};
+  uint32_t i;
+  for (i = 0; i < ts_node_child_count(subject); ++i) {
+    TSNode child = ts_node_child(subject, i);
+    TSNode tmp   = find_rec_chld_by_type(child, needle);
+    if (!ts_node_is_null(tmp)) {
+      return tmp;
+    }
     const char *node_type = ts_node_type(child);
     if (strcmp(node_type, needle) == 0) {
       return child;
@@ -1091,7 +1109,78 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "struct mutex") == 0) {
       /* fprintf(stderr, "type[%s]\n", type); */
     } else if (strcmp(result->type, "sd_bus") == 0) {
-      //TODO
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+
+#if 0
+      result->format = "%p:open[%s]ready[%s]";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, "(void *)", pprefix, result->variable, NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "(void *)&", pprefix, result->variable, NULL);
+      }
+      sp_str_append(&buf_tmp, ", ");
+
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, " ? sd_bus_is_open(");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") ? \"TRUE\" : \"FALSE\" : \"NULL\"");
+      } else {
+        sp_str_append(&buf_tmp, "sd_bus_is_open(&");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") ? \"TRUE\" : \"FALSE\"");
+      }
+      sp_str_append(&buf_tmp, ", ");
+
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, " ? sd_bus_is_ready(");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") ? \"TRUE\" : \"FALSE\" : \"NULL\"");
+      } else {
+        sp_str_append(&buf_tmp, "sd_bus_is_ready(&");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") ? \"TRUE\" : \"FALSE\"");
+      }
+#else
+      result->format = "%p:open[%d]ready[%d]";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, "(void *)", pprefix, result->variable, NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "(void *)&", pprefix, result->variable, NULL);
+      }
+      sp_str_append(&buf_tmp, ", ");
+
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, " ? sd_bus_is_open(");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") : 1337");
+      } else {
+        sp_str_append(&buf_tmp, "sd_bus_is_open(&");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ")");
+      }
+      sp_str_append(&buf_tmp, ", ");
+
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, " ? sd_bus_is_ready(");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ") : 1337");
+      } else {
+        sp_str_append(&buf_tmp, "sd_bus_is_ready(&");
+        sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+        sp_str_append(&buf_tmp, ")");
+      }
+
+#endif
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+
+      sp_str_free(&buf_tmp);
 
     } else if (strcmp(result->type, "GObject") == 0) {
 #if 0
@@ -1739,6 +1828,27 @@ struct _GValue {
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GDBusProxy") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s:%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? g_dbus_proxy_get_object_path(", pprefix,
+                       result->variable, ")", " : \"(NULL)\", ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       " ? g_dbus_proxy_get_interface_name(", pprefix,
+                       result->variable, ")", " : \"(NULL)\"", NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "g_dbus_proxy_get_object_path(&", pprefix,
+                       result->variable, "), ", NULL);
+        sp_str_appends(&buf_tmp, "g_dbus_proxy_get_interface_name(&", pprefix,
+                       result->variable, ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "GDir") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1800,6 +1910,20 @@ struct _GValue {
         sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, ".message", NULL);
       }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_mixer_t") == 0) {
+      result->format = "%p";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      sp_str_append(&buf_tmp, "(void*)");
+      if (result->pointer) {
+      } else {
+        sp_str_append(&buf_tmp, "&");
+      }
+      sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
@@ -2019,13 +2143,17 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
   struct arg_list field_dummy = {0};
   struct arg_list *field_it   = &field_dummy;
 
+  /* printf("%s\n", sp_struct_value(ctx, subject)); */
+  /* debug_subtypes_rec(ctx, subject, 0); */
   /* printf("here!"); */
-  tmp = find_direct_chld_by_type(subject, "function_declarator");
+  tmp = find_rec_chld_by_type(subject, "function_declarator");
   if (!ts_node_is_null(tmp)) {
+    /* printf("%s:1\n", __func__); */
     tmp = find_direct_chld_by_type(tmp, "parameter_list");
     if (!ts_node_is_null(tmp)) {
       uint32_t i;
       struct arg_list *arg = NULL;
+      /* printf("%s:4\n", __func__); */
 
       for (i = 0; i < ts_node_child_count(tmp); ++i) {
         TSNode param_decl = ts_node_child(tmp, i);
