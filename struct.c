@@ -620,16 +620,16 @@ __field_type(struct sp_ts_Context *ctx,
 {
   TSNode tmp;
   char *type = NULL;
+  /* fprintf(stderr, "%s:=========================\n", __func__); */
 
   tmp = find_direct_chld_by_type(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
-    /* fprintf(stderr, "1\n"); */
     /* $primitive_type $field_identifier; */
     type = sp_struct_value(ctx, tmp);
+    /* fprintf(stderr, "%s:1 [%s]\n", __func__, type); */
   } else {
     tmp = find_direct_chld_by_type(subject, "sized_type_specifier");
     if (!ts_node_is_null(tmp)) {
-      /* fprintf(stderr, "2\n"); */
       sp_str tmp_str;
       uint32_t i;
 
@@ -648,17 +648,18 @@ __field_type(struct sp_ts_Context *ctx,
 
       /* $sized_type_specifier $sized_type_specifier ... $field_identifier; */
       type = strdup(sp_str_c_str(&tmp_str));
+      /* fprintf(stderr, "%s:2 [%s]\n", __func__, type); */
       sp_str_free(&tmp_str);
     } else {
       tmp = find_direct_chld_by_type(subject, "type_identifier");
       if (!ts_node_is_null(tmp)) {
-        /* fprintf(stderr, "3\n"); */
         /* $type_identifier $field_identifier;
          * Example:
          *  type_t type0;
          *  gint int0;
          */
         type = sp_struct_value(ctx, tmp);
+        /* fprintf(stderr, "%s:3 [%s]\n", __func__, type); */
       } else {
         tmp = find_direct_chld_by_type(subject, "enum_specifier");
         if (!ts_node_is_null(tmp)) {
@@ -667,6 +668,7 @@ __field_type(struct sp_ts_Context *ctx,
           type_id = find_direct_chld_by_type(tmp, "type_identifier");
           if (!ts_node_is_null(type_id)) {
             type = sp_struct_value(ctx, type_id);
+            /* fprintf(stderr, "%s:4 [%s]\n", __func__, type); */
           } else {
             TSNode enum_list;
 
@@ -802,41 +804,62 @@ __field_type(struct sp_ts_Context *ctx,
 }
 
 static struct arg_list *
+xx(struct sp_ts_Context *ctx,
+   struct arg_list *result,
+   TSNode subject,
+   const char *identifier);
+
+static struct arg_list *
 __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
 {
   struct arg_list *result = NULL;
-  TSNode tmp;
-  result = calloc(1, sizeof(*result));
+  result                  = calloc(1, sizeof(*result));
 
+  /* fprintf(stderr, "%s:{\n", __func__); */
   /* debug_subtypes_rec(ctx, subject, 0); */
-  tmp = find_direct_chld_by_type(subject, identifier);
-  if (!ts_node_is_null(tmp)) {
-    /* int first, *second, *const *third, *fourth = &first; */
-    uint32_t i;
-    struct arg_list *rit = result;
-    for (i = 0; i < ts_node_child_count(subject); ++i) {
-      TSNode child          = ts_node_child(subject, i);
-      const char *node_type = ts_node_type(child);
-      if (strcmp(node_type, identifier) == 0) {
-        if (rit->variable) {
-          rit->next = calloc(1, sizeof(*rit));
-          rit       = rit->next;
-        }
-        rit->variable = sp_struct_value(ctx, child);
-      }
+
+  TSNode init_decl = find_direct_chld_by_type(subject, "init_declarator");
+  if (!ts_node_is_null(init_decl)) {
+    TSNode ptr_decl;
+    ptr_decl = find_direct_chld_by_type(init_decl, "pointer_declarator");
+    if (!ts_node_is_null(ptr_decl)) {
+      __rec_search(ctx, ptr_decl, identifier, 1, &result->pointer);
     }
-    /* fprintf(stderr, "1: %s\n", result->variable); */
+    xx(ctx, result, init_decl, identifier);
   } else {
-    /* TODO we get here when int *first, *second, *const *third, *fourth = &first;
-     *                           ^
-     */
-    tmp = find_direct_chld_by_type(subject, "pointer_declarator");
-    if (!ts_node_is_null(tmp)) {
-      tmp = __rec_search(ctx, tmp, identifier, 1, &result->pointer);
-      if (!ts_node_is_null(tmp)) {
-        result->variable = sp_struct_value(ctx, tmp);
+    xx(ctx, result, subject, identifier);
+  }
+
+  /* fprintf(stderr, "%s:}\n", __func__); */
+  return result;
+}
+
+static struct arg_list *
+xx(struct sp_ts_Context *ctx,
+   struct arg_list *result,
+   TSNode subject,
+   const char *identifier)
+{
+  /* fprintf(stderr, "  %s:{\n", __func__); */
+  /* debug_subtypes_rec(ctx, subject, 1); */
+  TSNode ptr_decl = find_direct_chld_by_type(subject, "pointer_declarator");
+  if (!ts_node_is_null(ptr_decl)) {
+    TSNode id_decl = find_rec_chld_by_type(subject, identifier);
+    if (!ts_node_is_null(id_decl)) {
+      struct arg_list *rit = result;
+      if (rit->variable) {
+        rit->next = calloc(1, sizeof(*rit));
+        rit       = rit->next;
       }
+      rit->variable = sp_struct_value(ctx, id_decl);
+      __rec_search(ctx, ptr_decl, identifier, 1, &result->pointer);
+    }
+  } else {
+    TSNode id_decl = find_direct_chld_by_type(subject, identifier);
+    if (!ts_node_is_null(id_decl)) {
+      result->variable = sp_struct_value(ctx, id_decl);
     } else {
+      TSNode tmp;
       tmp = find_direct_chld_by_type(subject, "array_declarator");
       if (!ts_node_is_null(tmp)) {
         uint32_t i;
@@ -876,6 +899,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
           TSNode par_decl;
           par_decl =
             find_direct_chld_by_type(fun_decl, "parenthesized_declarator");
+          fprintf(stderr, "%s:4\n", __func__);
 
           /* fprintf(stderr, "%s: 1\n", __func__); */
           if (!ts_node_is_null(par_decl)) {
@@ -900,7 +924,7 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
       }
     }
   }
-
+  /* fprintf(stderr, "  %s:}\n", __func__); */
   return result;
 }
 
@@ -1015,25 +1039,25 @@ __format(struct sp_ts_Context *ctx,
         result->format = "%c%c%c%c%c%c%c%c%c";
 
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IRUSR) ? 'r' : '-', ", NULL);
+                       " & S_IRUSR ? 'r' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IWUSR) ? 'w' : '-', ", NULL);
+                       " & S_IWUSR ? 'w' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IXUSR) ? 'x' : '-', ", NULL);
+                       " & S_IXUSR ? 'x' : '-', ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IRGRP) ? 'r' : '-', ", NULL);
+                       " & S_IRGRP ? 'r' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IWGRP) ? 'w' : '-', ", NULL);
+                       " & S_IWGRP ? 'w' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IXGRP) ? 'x' : '-', ", NULL);
+                       " & S_IXGRP ? 'x' : '-', ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IROTH) ? 'r' : '-', ", NULL);
+                       " & S_IROTH ? 'r' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " &  S_IWOTH) ? 'w' : '-', ", NULL);
+                       " & S_IWOTH ? 'w' : '-', ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable,
-                       " & S_IXOTH) ? 'x' : '-'", NULL);
+                       " & S_IXOTH ? 'x' : '-'", NULL);
 
         free(result->complex_raw);
         result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1938,6 +1962,7 @@ struct _GValue {
                strcmp(result->type, "uint8_t") == 0) {
       if (result->pointer) {
         /* TODO if pointer hex? */
+        result->format = "%p";
       } else if (result->is_array) {
         /* TODO if pointer hex? */
       } else {
@@ -2053,6 +2078,7 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
 {
   struct arg_list *result = NULL;
 
+  /* fprintf(stderr, "%s: {\n", __func__); */
   if ((result = __field_name(ctx, subject, "identifier"))) {
     struct arg_list *it = result;
     while (it) {
@@ -2066,6 +2092,7 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
       it = it->next;
     }
   }
+  /* fprintf(stderr, "%s: }\n", __func__); */
 
   return result;
 }
@@ -2237,6 +2264,7 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
     if (!ts_node_is_null(sp_find_sibling_of_type(it, "function_definition"))) {
       break;
     }
+    /* debug_subtypes_rec(ctx, it, 0); */
     do {
       if (strcmp(ts_node_type(sibling), "declaration") == 0) {
         struct arg_list *arg = NULL;
@@ -2646,6 +2674,7 @@ main(int argc, const char *argv[])
               }
 #endif
               else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+
                 if (strcmp(in_type, "crunch") == 0) {
                   res = sp_print_enum(&ctx, found);
                 } else {
