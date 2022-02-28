@@ -14,6 +14,7 @@
 #include <assert.h>
 #include <limits.h>
 #include <errno.h>
+#include <jansson.h>
 
 enum sp_ts_SourceDomain {
   DEFAULT_DOMAIN = 0,
@@ -25,6 +26,7 @@ struct sp_ts_Context {
   struct sp_ts_file file;
   TSTree *tree;
   enum sp_ts_SourceDomain domain;
+  uint32_t output_line;
 };
 
 extern const TSLanguage *
@@ -466,6 +468,27 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
   return true;
 }
 
+static void
+print_json_response(uint32_t line, const char *data)
+{
+  char *json_response  = NULL;
+  json_t *root         = json_object();
+  json_t *json_inserts = json_array();
+  {
+    json_t *json_insert = json_object();
+    json_object_set_new(json_insert, "data", json_string(data));
+    json_object_set_new(json_insert, "line", json_integer(line));
+    json_array_append_new(json_inserts, json_insert);
+  }
+  json_object_set_new(root, "inserts", json_inserts);
+
+  json_response = json_dumps(root, JSON_PRESERVE_ORDER);
+  fprintf(stdout, "%s", json_response);
+  free(json_response);
+
+  json_decref(root);
+}
+
 static int
 sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
 {
@@ -570,7 +593,8 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   }
   sp_str_append(&buf, "}\n");
 
-  fprintf(stdout, "%s", sp_str_c_str(&buf));
+  /* fprintf(stdout, "%s", sp_str_c_str(&buf)); */
+  print_json_response(ctx->output_line, sp_str_c_str(&buf));
 
 Lout:
   sp_str_free(&buf);
@@ -815,8 +839,8 @@ __field_name(struct sp_ts_Context *ctx, TSNode subject, const char *identifier)
   struct arg_list *result = NULL;
   result                  = calloc(1, sizeof(*result));
 
-  /* fprintf(stderr, "%s:{\n", __func__); */
-  /* debug_subtypes_rec(ctx, subject, 0); */
+  fprintf(stderr, "%s:{\n", __func__);
+  debug_subtypes_rec(ctx, subject, 0);
 
   TSNode init_decl = find_direct_chld_by_type(subject, "init_declarator");
   if (!ts_node_is_null(init_decl)) {
@@ -840,8 +864,8 @@ xx(struct sp_ts_Context *ctx,
    TSNode subject,
    const char *identifier)
 {
-  /* fprintf(stderr, "  %s:{\n", __func__); */
-  /* debug_subtypes_rec(ctx, subject, 1); */
+  fprintf(stderr, "  %s:{\n", __func__);
+  debug_subtypes_rec(ctx, subject, 1);
   TSNode ptr_decl = find_direct_chld_by_type(subject, "pointer_declarator");
   if (!ts_node_is_null(ptr_decl)) {
     TSNode id_decl = find_rec_chld_by_type(subject, identifier);
@@ -2106,6 +2130,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   size_t line_length;
   size_t complete = 0;
   struct arg_list *field_it;
+
   sp_str_init(&buf, 0);
   sp_str_init(&line_buf, 0);
 
@@ -2155,7 +2180,8 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   } //while
   sp_str_append(&buf, ");");
 
-  fprintf(stdout, "%s", sp_str_c_str(&buf));
+  print_json_response(ctx->output_line, sp_str_c_str(&buf));
+
   sp_str_free(&line_buf);
   sp_str_free(&buf);
 
@@ -2383,7 +2409,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
   sp_str_append(&buf, "  return buf;\n");
   sp_str_append(&buf, "}\n");
 
-  fprintf(stdout, "%s", sp_str_c_str(&buf));
+  print_json_response(ctx->output_line, sp_str_c_str(&buf));
 
   sp_str_free(&buf);
   return EXIT_SUCCESS;
@@ -2536,12 +2562,12 @@ int
 main(int argc, const char *argv[])
 {
   int res                  = EXIT_FAILURE;
-  TSPoint pos              = {.row = 0, .column = 0};
   struct sp_ts_Context ctx = {0};
   const char *in_type      = NULL;
   const char *in_file      = NULL;
   const char *in_line      = NULL;
   const char *in_column    = NULL;
+  TSPoint pos              = {0};
 
   if (argc != 5) {
     if (argc > 1) {
@@ -2567,6 +2593,7 @@ main(int argc, const char *argv[])
     fprintf(stderr, "failed to parse column '%s'\n", in_column);
     return EXIT_FAILURE;
   }
+  ctx.output_line = pos.row + 1;
 
   if (mmap_file(in_file, &ctx.file) == 0) {
     TSParser *parser          = ts_parser_new();
@@ -2653,45 +2680,29 @@ main(int argc, const char *argv[])
             if (!ts_node_is_null(found)) {
               if (strcmp(ts_node_type(found), struct_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
-                  res = sp_print_struct(&ctx, found);
-                } else {
-                  uint32_t line;
-                  line = sp_find_last_line(found);
-                  fprintf(stdout, "%u", line);
-                  res = EXIT_SUCCESS;
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_struct(&ctx, found);
                 }
               }
 #if 1
               else if (strcmp(ts_node_type(found), class_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
-                  res = sp_print_class(&ctx, found);
-                } else {
-                  uint32_t line;
-                  line = sp_find_last_line(found);
-                  fprintf(stdout, "%u", line);
-                  res = EXIT_SUCCESS;
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_class(&ctx, found);
                 }
               }
 #endif
               else if (strcmp(ts_node_type(found), enum_spec) == 0) {
 
                 if (strcmp(in_type, "crunch") == 0) {
-                  res = sp_print_enum(&ctx, found);
-                } else {
-                  uint32_t line;
-                  line = sp_find_last_line(found);
-                  fprintf(stdout, "%u", line);
-                  res = EXIT_SUCCESS;
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_enum(&ctx, found);
                 }
               } else if (strcmp(ts_node_type(found), fun_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
                   /* printf("%s\n", ts_node_string(found)); */
-                  res = sp_print_function_args(&ctx, found);
-                } else {
-                  uint32_t line;
-                  line = sp_find_open_bracket(found);
-                  fprintf(stdout, "%u", line);
-                  res = EXIT_SUCCESS;
+                  ctx.output_line = sp_find_open_bracket(found);
+                  res             = sp_print_function_args(&ctx, found);
                 }
               }
             }

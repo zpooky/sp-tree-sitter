@@ -20,7 +20,7 @@ LDFLAGS = -fno-omit-frame-pointer -fstack-protector -fsanitize=address
 #-fsanitize=thread
 
 # LDFLAGS += $(shell pkg-config --libs libsystemd glib-2.0)
-LDLIBS = -Ltree-sitter -l:libtree-sitter.a #-Lbuild -l:languages.so
+LDLIBS = -Ltree-sitter -l:libtree-sitter.a $(shell pkg-config --libs jansson)#-Lbuild -l:languages.so
 LDFLAGS = -Wl,-rpath,build # write rpath to executable for where to find languages.so
 LDFLAGS =
 
@@ -42,6 +42,7 @@ CFLAGS += -Wreturn-type -Wcast-align -Wcast-qual -Wuninitialized -Winit-self
 CFLAGS += -Wformat=2 -Wformat-security -Wmissing-include-dirs
 CFLAGS += -Wstrict-prototypes
 CFLAGS += -ggdb -O0
+CFLAGS += $(shell pkg-config --cflags jansson)
 
 CXXFLAGS = $(CFLAGS)
 
