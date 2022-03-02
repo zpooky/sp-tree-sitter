@@ -2677,7 +2677,6 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
   bool found_branch = false;
 
   bool found_else = false;
-  bool found_if   = false;
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child           = ts_node_child(subject, i);
     const char *child_type = ts_node_type(child);
@@ -2693,15 +2692,10 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
         assert(!branches->next);
       }
 
-      if (!found_else) {
-        found_if = true;
-      }
-
       if (found_else) {
         break;
       }
     } else if (strcmp(child_type, "if_statement") == 0) {
-#if 1
       if (sp_branches_if_statement_rec(ctx, child, branches, context,
                                        branch_id)) {
         while (branches->next) {
@@ -2711,34 +2705,11 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
       } else {
         assert(!branches->next);
       }
-#endif
       break;
     } else if (strcmp(child_type, "else") == 0) {
       found_else = true;
     }
-
-#if 0
-    else_idx = find_direct_chld_index_by_type(subject, "else");
-    if (else_idx >= 0) {
-      if ((uint32_t)(else_idx + 1) < ts_node_child_count(subject)) {
-        comp_state            = ts_node_child(subject, (uint32_t)else_idx + 1);
-        const char *node_type = ts_node_type(comp_state);
-        fprintf(stderr, "%s:node_type[%s]\n", __func__, node_type);
-        if (strcmp(node_type, "compound_statement") == 0) {
-          if (sp_branches_compound_statement_rec(ctx, comp_state, branches,
-                                                 context, branch_id)) {
-            while (branches->next) {
-              branches = branches->next;
-            }
-            found_branch = true;
-          } else {
-            assert(!branches->next);
-          }
-        }
-      }
-    }
-#endif
-  }
+  } //for
   return found_branch;
 }
 
@@ -2773,19 +2744,16 @@ sp_branches_rec(struct sp_ts_Context *ctx,
       assert(!branches->next);
       branches = branches->next =
         new_branch_list(context, branch_id, point.row);
-    }
-#if 0
-    else {
-    if (sp_branches_rec(ctx, child, branches, context, branch_id)) {
-      found_branch = true;
     } else {
-      assert(!branches->next);
+      if (sp_branches_rec(ctx, child, branches, context, branch_id)) {
+        while (branches->next) {
+          branches = branches->next;
+        }
+        found_branch = true;
+      } else {
+        assert(!branches->next);
+      }
     }
-    while (branches->next) {
-      branches = branches->next;
-    }
-  }
-#endif
   } //for
 
   return found_branch;
