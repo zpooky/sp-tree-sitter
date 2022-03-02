@@ -2786,7 +2786,25 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
 
     for (it = dummy.next; it; it = it->next) {
       json_t *json_insert = json_object();
-      json_object_set_new(json_insert, "data", json_string(it->context));
+      {
+        sp_str buf;
+        sp_str_init(&buf, 0);
+
+        /* TOOD indent */
+        if (ctx->domain == DEFAULT_DOMAIN) {
+          sp_str_append(&buf, "printf(");
+        } else if (ctx->domain == SYSLOG_DOMAIN) {
+          sp_str_append(&buf, "syslog(LOG_ERR,");
+        } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
+          sp_str_append(&buf, "printk(KERN_ERR ");
+        }
+
+        sp_str_appends(&buf, "\"%s:", it->context, NULL);
+        sp_str_append(&buf, "\\n\", __func__);");
+        json_object_set_new(json_insert, "data",
+                            json_string(sp_str_c_str(&buf)));
+        sp_str_free(&buf);
+      }
       json_object_set_new(json_insert, "line", json_integer(it->line + len));
       json_array_append_new(json_inserts, json_insert);
       ++len;
