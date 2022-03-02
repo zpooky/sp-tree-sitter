@@ -482,20 +482,25 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
 static void
 print_json_response(uint32_t line, const char *data)
 {
-  char *json_response  = NULL;
-  json_t *root         = json_object();
-  json_t *json_inserts = json_array();
+  json_t *root = json_object();
   {
-    json_t *json_insert = json_object();
-    json_object_set_new(json_insert, "data", json_string(data));
-    json_object_set_new(json_insert, "line", json_integer(line));
-    json_array_append_new(json_inserts, json_insert);
+    json_t *json_inserts = json_array();
+    {
+      json_t *json_insert = json_object();
+      json_object_set_new(json_insert, "data", json_string(data));
+      json_object_set_new(json_insert, "line", json_integer(line));
+      json_array_append_new(json_inserts, json_insert);
+    }
+    json_object_set_new(root, "inserts", json_inserts);
   }
-  json_object_set_new(root, "inserts", json_inserts);
 
-  json_response = json_dumps(root, JSON_PRESERVE_ORDER);
-  fprintf(stdout, "%s", json_response);
-  free(json_response);
+  {
+    char *json_response;
+    json_response = json_dumps(root, JSON_PRESERVE_ORDER);
+    fprintf(stdout, "%s", json_response);
+    fflush(stdout);
+    free(json_response);
+  }
 
   json_decref(root);
 }
@@ -2172,7 +2177,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   if (ctx->domain == DEFAULT_DOMAIN) {
     sp_str_append(&buf, "  printf(");
   } else if (ctx->domain == SYSLOG_DOMAIN) {
-    sp_str_append(&buf, "  syslog(LOG_ERR,");
+    sp_str_append(&buf, "  syslog(LOG_ERR, ");
   } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
@@ -2768,43 +2773,48 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
   {
     uint32_t len =
       0; // since by adding a line above we alter what line we should insert next
-    json_t *root         = json_object();
-    json_t *json_inserts = json_array();
-    char *json_response  = NULL;
+    json_t *root = json_object();
+    {
+      json_t *json_inserts = json_array();
+      for (it = dummy.next; it; it = it->next) {
+        json_t *json_insert = json_object();
+        {
+          uint32_t i;
 
-    for (it = dummy.next; it; it = it->next) {
-      json_t *json_insert = json_object();
-      {
-        uint32_t i;
+          for (i = 0; i < it->depth; ++i) {
+            sp_str_append(&buf, "  ");
+          }
 
-        for (i = 0; i < it->depth; ++i) {
-          sp_str_append(&buf, "  ");
+          if (ctx->domain == DEFAULT_DOMAIN) {
+            sp_str_append(&buf, "printf(");
+          } else if (ctx->domain == SYSLOG_DOMAIN) {
+            sp_str_append(&buf, "syslog(LOG_ERR, ");
+          } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
+            sp_str_append(&buf, "printk(KERN_ERR ");
+          }
+
+          sp_str_appends(&buf, "\"%s:", it->context, NULL);
+          sp_str_append(&buf, "\\n\", __func__);");
+          json_object_set_new(json_insert, "data",
+                              json_string(sp_str_c_str(&buf)));
         }
+        json_object_set_new(json_insert, "line", json_integer(it->line + len));
+        json_array_append_new(json_inserts, json_insert);
+        ++len;
 
-        if (ctx->domain == DEFAULT_DOMAIN) {
-          sp_str_append(&buf, "printf(");
-        } else if (ctx->domain == SYSLOG_DOMAIN) {
-          sp_str_append(&buf, "syslog(LOG_ERR,");
-        } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
-          sp_str_append(&buf, "printk(KERN_ERR ");
-        }
-
-        sp_str_appends(&buf, "\"%s:", it->context, NULL);
-        sp_str_append(&buf, "\\n\", __func__);");
-        json_object_set_new(json_insert, "data",
-                            json_string(sp_str_c_str(&buf)));
+        sp_str_clear(&buf);
       }
-      json_object_set_new(json_insert, "line", json_integer(it->line + len));
-      json_array_append_new(json_inserts, json_insert);
-      ++len;
-
-      sp_str_clear(&buf);
+      json_object_set_new(root, "inserts", json_inserts);
     }
 
-    json_object_set_new(root, "inserts", json_inserts);
-    json_response = json_dumps(root, JSON_PRESERVE_ORDER);
-    fprintf(stdout, "%s", json_response);
-    free(json_response);
+    {
+      char *json_response;
+      json_response = json_dumps(root, JSON_PRESERVE_ORDER);
+      fprintf(stdout, "%s", json_response);
+      fflush(stdout);
+      free(json_response);
+    }
+
     json_decref(root);
   }
 
