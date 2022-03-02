@@ -208,18 +208,29 @@ sp_find_parent(TSNode subject,
   return result;
 }
 
-static TSNode
-find_direct_chld_by_type(TSNode subject, const char *needle)
+static int32_t
+find_direct_chld_index_by_type(TSNode subject, const char *needle)
 {
-  TSNode empty = {0};
   uint32_t i;
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child          = ts_node_child(subject, i);
     const char *node_type = ts_node_type(child);
     if (strcmp(node_type, needle) == 0) {
-      return child;
+      return (int32_t)i;
     }
   }
+  return -1;
+}
+
+static TSNode
+find_direct_chld_by_type(TSNode subject, const char *needle)
+{
+  TSNode empty  = {0};
+  int32_t index = find_direct_chld_index_by_type(subject, needle);
+  if (index >= 0) {
+    return ts_node_child(subject, (uint32_t)index);
+  }
+
   return empty;
 }
 
@@ -2582,6 +2593,232 @@ closest_before_pos(TSPoint pos, TSNode closest, TSNode candidate)
   return closest;
 }
 
+struct branch_list;
+struct branch_list {
+  struct branch_list *next;
+  char *context;
+  uint32_t line;
+};
+static struct branch_list *
+new_branch_list(const char *context, uint32_t branch_id, uint32_t line)
+{
+  struct branch_list *result;
+  char new_context_tmp[128] = {'\0'};
+  char *new_context         = NULL;
+
+  if (strlen(context) > 0) {
+    sprintf(new_context_tmp, "%s.%d", context, branch_id);
+  } else {
+    sprintf(new_context_tmp, "%d", branch_id);
+  }
+  new_context = strdup(new_context_tmp);
+
+  result  = calloc(1, sizeof(*result));
+  *result = (struct branch_list){
+    .next    = NULL,
+    .context = new_context,
+    .line    = line,
+  };
+
+  return result;
+}
+static bool
+sp_branches_rec(struct sp_ts_Context *ctx,
+                TSNode subject,
+                struct branch_list *branches,
+                const char *context,
+                uint32_t branch_id);
+
+static bool
+sp_branches_compound_statement_rec(struct sp_ts_Context *ctx,
+                                   TSNode subject,
+                                   struct branch_list *branches,
+                                   const char *context,
+                                   uint32_t *branch_id)
+{
+  bool found_branch = false;
+
+  if (ts_node_child_count(subject) >= 1) {
+    TSNode open_bracket           = ts_node_child(subject, 0);
+    TSPoint open_bracket_point    = ts_node_start_point(open_bracket);
+    const char *open_bracket_type = ts_node_type(open_bracket);
+
+    if (strcmp(open_bracket_type, "{") != 0) {
+      fprintf(stderr, "%s:open_bracket_type[%s]\n", __func__,
+              open_bracket_type);
+      exit(1); //BUG
+      return false;
+    }
+
+    branches = branches->next =
+      new_branch_list(context, *branch_id, open_bracket_point.row + 1);
+    found_branch = true;
+    ++(*branch_id);
+    if (sp_branches_rec(ctx, subject, branches, branches->context, 0)) {
+      while (branches->next) {
+        branches = branches->next;
+      }
+    } else {
+      assert(!branches->next);
+    }
+  }
+
+  return found_branch;
+}
+
+static bool
+sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
+                             TSNode subject,
+                             struct branch_list *branches,
+                             const char *context,
+                             uint32_t *branch_id)
+{
+  int32_t comp_idx;
+  TSNode if_state;
+  int32_t else_idx;
+  bool found_branch = false;
+
+  comp_idx = find_direct_chld_index_by_type(subject, "compound_statement");
+  if (comp_idx == 0) {
+  TSNode comp_state;
+    if (sp_branches_compound_statement_rec(ctx, comp_state, branches, context,
+                                           branch_id)) {
+      while (branches->next) {
+        branches = branches->next;
+      }
+      found_branch = true;
+    } else {
+      assert(!branches->next);
+    }
+  }
+
+  if_state = find_direct_chld_by_type(subject, "if_statement");
+  if (!ts_node_is_null(if_state)) {
+    if (sp_branches_if_statement_rec(ctx, if_state, branches, context,
+                                     branch_id)) {
+      while (branches->next) {
+        branches = branches->next;
+      }
+      found_branch = true;
+    } else {
+      assert(!branches->next);
+    }
+  }
+
+  else_idx = find_direct_chld_index_by_type(subject, "else");
+  if (else_idx >= 0) {
+    if ((uint32_t)(else_idx + 1) < ts_node_child_count(subject)) {
+      comp_state            = ts_node_child(subject, (uint32_t)else_idx + 1);
+      const char *node_type = ts_node_type(comp_state);
+      fprintf(stderr, "%s:node_type[%s]\n", __func__, node_type);
+      if (strcmp(node_type, "compound_statement") == 0) {
+        if (sp_branches_compound_statement_rec(ctx, comp_state, branches,
+                                               context, branch_id)) {
+          while (branches->next) {
+            branches = branches->next;
+          }
+          found_branch = true;
+        } else {
+          assert(!branches->next);
+        }
+      }
+    }
+  }
+  return found_branch;
+}
+
+static bool
+sp_branches_rec(struct sp_ts_Context *ctx,
+                TSNode subject,
+                struct branch_list *branches,
+                const char *context,
+                uint32_t branch_id)
+{
+  uint32_t i        = 0;
+  bool found_branch = false;
+
+  for (i = 0; i < ts_node_child_count(subject); ++i) {
+    TSNode child           = ts_node_child(subject, i);
+    const char *child_type = ts_node_type(child);
+
+    if (strcmp(child_type, "if_statement") == 0) {
+      if (sp_branches_if_statement_rec(ctx, child, branches, context,
+                                       &branch_id)) {
+        while (branches->next) {
+          branches = branches->next;
+        }
+        found_branch = true;
+      } else {
+        assert(!branches->next);
+      }
+    } else if (strcmp(child_type, "return_statement") == 0) {
+      TSPoint point = ts_node_start_point(child);
+      found_branch  = true;
+
+      assert(!branches->next);
+      branches = branches->next =
+        new_branch_list(context, branch_id, point.row);
+    }
+#if 0
+    else {
+    if (sp_branches_rec(ctx, child, branches, context, branch_id)) {
+      found_branch = true;
+    } else {
+      assert(!branches->next);
+    }
+    while (branches->next) {
+      branches = branches->next;
+    }
+  }
+#endif
+  } //for
+
+  return found_branch;
+}
+
+static int
+sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
+{
+  struct branch_list dummy = {0};
+  struct branch_list *it;
+  TSNode body;
+
+  body = find_direct_chld_by_type(subject, "compound_statement");
+  if (!ts_node_is_null(body)) {
+    debug_subtypes_rec(ctx, body, 0);
+    fprintf(stderr, "\n");
+    /* printf("%s:\n", __func__); */
+    /* debug_subtypes_rec(ctx, body, 0); */
+    if (!sp_branches_rec(ctx, body, &dummy, "", 0)) {
+      assert(!dummy.next);
+    }
+  }
+
+  {
+    uint32_t len =
+      0; // since by adding a line above we alter what line we should insert next
+    json_t *root         = json_object();
+    json_t *json_inserts = json_array();
+    char *json_response  = NULL;
+
+    for (it = dummy.next; it; it = it->next) {
+      json_t *json_insert = json_object();
+      json_object_set_new(json_insert, "data", json_string(it->context));
+      json_object_set_new(json_insert, "line", json_integer(it->line + len));
+      json_array_append_new(json_inserts, json_insert);
+      ++len;
+    }
+
+    json_object_set_new(root, "inserts", json_inserts);
+    json_response = json_dumps(root, JSON_PRESERVE_ORDER);
+    fprintf(stdout, "%s", json_response);
+    free(json_response);
+    json_decref(root);
+  }
+
+  return EXIT_SUCCESS;
+}
+
 int
 main(int argc, const char *argv[])
 {
@@ -2698,9 +2935,9 @@ main(int argc, const char *argv[])
             const char *struct_spec = "struct_specifier";
             const char *class_spec  = "class_specifier";
             const char *enum_spec   = "enum_specifier";
-            const char *fun_spec    = "function_definition";
+            const char *fun_def     = "function_definition";
             TSNode found = sp_find_parent(highligted, struct_spec, enum_spec,
-                                          fun_spec, class_spec);
+                                          fun_def, class_spec);
             if (!ts_node_is_null(found)) {
               if (strcmp(ts_node_type(found), struct_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
@@ -2722,11 +2959,13 @@ main(int argc, const char *argv[])
                   ctx.output_line = sp_find_last_line(found);
                   res             = sp_print_enum(&ctx, found);
                 }
-              } else if (strcmp(ts_node_type(found), fun_spec) == 0) {
+              } else if (strcmp(ts_node_type(found), fun_def) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
                   /* printf("%s\n", ts_node_string(found)); */
                   ctx.output_line = sp_find_open_bracket(found);
                   res             = sp_print_function_args(&ctx, found);
+                } else if (strcmp(in_type, "branches") == 0) {
+                  res = sp_print_branches(&ctx, found);
                 }
               }
             }
@@ -2747,10 +2986,6 @@ main(int argc, const char *argv[])
 
   return res;
 }
-
-/* TODO support complex (json) output for line and crunch */
-//TODO print indiciation of in which if case we are located in
-//TODO print indication before return
 
 //TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
 // example: NOTE: assumes xxx and l_xxx is related
