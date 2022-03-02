@@ -2673,56 +2673,71 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
                              const char *context,
                              uint32_t *branch_id)
 {
-  int32_t comp_idx;
-  TSNode if_state;
-  int32_t else_idx;
+  uint32_t i        = 0;
   bool found_branch = false;
 
-  comp_idx = find_direct_chld_index_by_type(subject, "compound_statement");
-  if (comp_idx == 0) {
-  TSNode comp_state;
-    if (sp_branches_compound_statement_rec(ctx, comp_state, branches, context,
-                                           branch_id)) {
-      while (branches->next) {
-        branches = branches->next;
-      }
-      found_branch = true;
-    } else {
-      assert(!branches->next);
-    }
-  }
+  bool found_else = false;
+  bool found_if   = false;
+  for (i = 0; i < ts_node_child_count(subject); ++i) {
+    TSNode child           = ts_node_child(subject, i);
+    const char *child_type = ts_node_type(child);
 
-  if_state = find_direct_chld_by_type(subject, "if_statement");
-  if (!ts_node_is_null(if_state)) {
-    if (sp_branches_if_statement_rec(ctx, if_state, branches, context,
-                                     branch_id)) {
-      while (branches->next) {
-        branches = branches->next;
+    if (strcmp(child_type, "compound_statement") == 0) {
+      if (sp_branches_compound_statement_rec(ctx, child, branches, context,
+                                             branch_id)) {
+        while (branches->next) {
+          branches = branches->next;
+        }
+        found_branch = true;
+      } else {
+        assert(!branches->next);
       }
-      found_branch = true;
-    } else {
-      assert(!branches->next);
-    }
-  }
 
-  else_idx = find_direct_chld_index_by_type(subject, "else");
-  if (else_idx >= 0) {
-    if ((uint32_t)(else_idx + 1) < ts_node_child_count(subject)) {
-      comp_state            = ts_node_child(subject, (uint32_t)else_idx + 1);
-      const char *node_type = ts_node_type(comp_state);
-      fprintf(stderr, "%s:node_type[%s]\n", __func__, node_type);
-      if (strcmp(node_type, "compound_statement") == 0) {
-        if (sp_branches_compound_statement_rec(ctx, comp_state, branches,
-                                               context, branch_id)) {
-          while (branches->next) {
-            branches = branches->next;
+      if (!found_else) {
+        found_if = true;
+      }
+
+      if (found_else) {
+        break;
+      }
+    } else if (strcmp(child_type, "if_statement") == 0) {
+#if 1
+      if (sp_branches_if_statement_rec(ctx, child, branches, context,
+                                       branch_id)) {
+        while (branches->next) {
+          branches = branches->next;
+        }
+        found_branch = true;
+      } else {
+        assert(!branches->next);
+      }
+#endif
+      break;
+    } else if (strcmp(child_type, "else") == 0) {
+      found_else = true;
+    }
+
+#if 0
+    else_idx = find_direct_chld_index_by_type(subject, "else");
+    if (else_idx >= 0) {
+      if ((uint32_t)(else_idx + 1) < ts_node_child_count(subject)) {
+        comp_state            = ts_node_child(subject, (uint32_t)else_idx + 1);
+        const char *node_type = ts_node_type(comp_state);
+        fprintf(stderr, "%s:node_type[%s]\n", __func__, node_type);
+        if (strcmp(node_type, "compound_statement") == 0) {
+          if (sp_branches_compound_statement_rec(ctx, comp_state, branches,
+                                                 context, branch_id)) {
+            while (branches->next) {
+              branches = branches->next;
+            }
+            found_branch = true;
+          } else {
+            assert(!branches->next);
           }
-          found_branch = true;
-        } else {
-          assert(!branches->next);
         }
       }
     }
+#endif
   }
   return found_branch;
 }
