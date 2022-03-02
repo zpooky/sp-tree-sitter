@@ -2841,7 +2841,7 @@ main(int argc, const char *argv[])
         return main_print(in_file);
       }
     }
-    fprintf(stderr, "%s crunch|line|print file [line] [column]\n", argv[0]);
+    fprintf(stderr, "%s crunch|line|print|branches file line column\n", argv[0]);
     return EXIT_FAILURE;
   }
   in_type   = argv[1];
