@@ -2598,9 +2598,13 @@ struct branch_list {
   struct branch_list *next;
   char *context;
   uint32_t line;
+  uint32_t depth;
 };
 static struct branch_list *
-new_branch_list(const char *context, uint32_t branch_id, uint32_t line)
+new_branch_list(const char *context,
+                uint32_t branch_id,
+                uint32_t line,
+                uint32_t depth)
 {
   struct branch_list *result;
   char new_context_tmp[128] = {'\0'};
@@ -2618,6 +2622,7 @@ new_branch_list(const char *context, uint32_t branch_id, uint32_t line)
     .next    = NULL,
     .context = new_context,
     .line    = line,
+    .depth   = depth,
   };
 
   return result;
@@ -2627,17 +2632,17 @@ sp_branches_rec(struct sp_ts_Context *ctx,
                 TSNode subject,
                 struct branch_list *branches,
                 const char *context,
-                uint32_t branch_id);
+                uint32_t branch_id,
+                uint32_t depth);
 
 static bool
 sp_branches_compound_statement_rec(struct sp_ts_Context *ctx,
                                    TSNode subject,
                                    struct branch_list *branches,
                                    const char *context,
-                                   uint32_t *branch_id)
+                                   uint32_t *branch_id,
+                                   uint32_t depth)
 {
-  bool found_branch = false;
-
   if (ts_node_child_count(subject) >= 1) {
     TSNode open_bracket           = ts_node_child(subject, 0);
     TSPoint open_bracket_point    = ts_node_start_point(open_bracket);
@@ -2650,20 +2655,18 @@ sp_branches_compound_statement_rec(struct sp_ts_Context *ctx,
       return false;
     }
 
+    ++depth;
     branches = branches->next =
-      new_branch_list(context, *branch_id, open_bracket_point.row + 1);
-    found_branch = true;
+      new_branch_list(context, *branch_id, open_bracket_point.row + 1, depth);
     ++(*branch_id);
-    if (sp_branches_rec(ctx, subject, branches, branches->context, 0)) {
-      while (branches->next) {
-        branches = branches->next;
-      }
-    } else {
-      assert(!branches->next);
+
+    sp_branches_rec(ctx, subject, branches, branches->context, 0, depth);
+    while (branches->next) {
+      branches = branches->next;
     }
   }
 
-  return found_branch;
+  return true;
 }
 
 static bool
@@ -2671,10 +2674,10 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
                              TSNode subject,
                              struct branch_list *branches,
                              const char *context,
-                             uint32_t *branch_id)
+                             uint32_t *branch_id,
+                             uint32_t depth)
 {
-  uint32_t i        = 0;
-  bool found_branch = false;
+  uint32_t i = 0;
 
   bool found_else = false;
   for (i = 0; i < ts_node_child_count(subject); ++i) {
@@ -2682,35 +2685,27 @@ sp_branches_if_statement_rec(struct sp_ts_Context *ctx,
     const char *child_type = ts_node_type(child);
 
     if (strcmp(child_type, "compound_statement") == 0) {
-      if (sp_branches_compound_statement_rec(ctx, child, branches, context,
-                                             branch_id)) {
-        while (branches->next) {
-          branches = branches->next;
-        }
-        found_branch = true;
-      } else {
-        assert(!branches->next);
+      sp_branches_compound_statement_rec(ctx, child, branches, context,
+                                         branch_id, depth);
+      while (branches->next) {
+        branches = branches->next;
       }
 
       if (found_else) {
         break;
       }
     } else if (strcmp(child_type, "if_statement") == 0) {
-      if (sp_branches_if_statement_rec(ctx, child, branches, context,
-                                       branch_id)) {
-        while (branches->next) {
-          branches = branches->next;
-        }
-        found_branch = true;
-      } else {
-        assert(!branches->next);
+      sp_branches_if_statement_rec(ctx, child, branches, context, branch_id,
+                                   depth);
+      while (branches->next) {
+        branches = branches->next;
       }
       break;
     } else if (strcmp(child_type, "else") == 0) {
       found_else = true;
     }
   } //for
-  return found_branch;
+  return true;
 }
 
 static bool
@@ -2718,45 +2713,36 @@ sp_branches_rec(struct sp_ts_Context *ctx,
                 TSNode subject,
                 struct branch_list *branches,
                 const char *context,
-                uint32_t branch_id)
+                uint32_t branch_id,
+                uint32_t depth)
 {
-  uint32_t i        = 0;
-  bool found_branch = false;
+  uint32_t i = 0;
 
   for (i = 0; i < ts_node_child_count(subject); ++i) {
     TSNode child           = ts_node_child(subject, i);
     const char *child_type = ts_node_type(child);
 
     if (strcmp(child_type, "if_statement") == 0) {
-      if (sp_branches_if_statement_rec(ctx, child, branches, context,
-                                       &branch_id)) {
-        while (branches->next) {
-          branches = branches->next;
-        }
-        found_branch = true;
-      } else {
-        assert(!branches->next);
+      sp_branches_if_statement_rec(ctx, child, branches, context, &branch_id,
+                                   depth);
+      while (branches->next) {
+        branches = branches->next;
       }
     } else if (strcmp(child_type, "return_statement") == 0) {
       TSPoint point = ts_node_start_point(child);
-      found_branch  = true;
 
       assert(!branches->next);
       branches = branches->next =
-        new_branch_list(context, branch_id, point.row);
+        new_branch_list(context, branch_id, point.row, depth);
     } else {
-      if (sp_branches_rec(ctx, child, branches, context, branch_id)) {
-        while (branches->next) {
-          branches = branches->next;
-        }
-        found_branch = true;
-      } else {
-        assert(!branches->next);
+      sp_branches_rec(ctx, child, branches, context, branch_id, depth);
+      while (branches->next) {
+        branches = branches->next;
       }
     }
   } //for
 
-  return found_branch;
+  return true;
 }
 
 static int
@@ -2765,6 +2751,8 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
   struct branch_list dummy = {0};
   struct branch_list *it;
   TSNode body;
+  sp_str buf;
+  sp_str_init(&buf, 0);
 
   body = find_direct_chld_by_type(subject, "compound_statement");
   if (!ts_node_is_null(body)) {
@@ -2772,7 +2760,7 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
     fprintf(stderr, "\n");
     /* printf("%s:\n", __func__); */
     /* debug_subtypes_rec(ctx, body, 0); */
-    if (!sp_branches_rec(ctx, body, &dummy, "", 0)) {
+    if (!sp_branches_rec(ctx, body, &dummy, "", 0, 1)) {
       assert(!dummy.next);
     }
   }
@@ -2787,10 +2775,12 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
     for (it = dummy.next; it; it = it->next) {
       json_t *json_insert = json_object();
       {
-        sp_str buf;
-        sp_str_init(&buf, 0);
+        uint32_t i;
 
-        /* TOOD indent */
+        for (i = 0; i < it->depth; ++i) {
+          sp_str_append(&buf, "  ");
+        }
+
         if (ctx->domain == DEFAULT_DOMAIN) {
           sp_str_append(&buf, "printf(");
         } else if (ctx->domain == SYSLOG_DOMAIN) {
@@ -2803,11 +2793,12 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
         sp_str_append(&buf, "\\n\", __func__);");
         json_object_set_new(json_insert, "data",
                             json_string(sp_str_c_str(&buf)));
-        sp_str_free(&buf);
       }
       json_object_set_new(json_insert, "line", json_integer(it->line + len));
       json_array_append_new(json_inserts, json_insert);
       ++len;
+
+      sp_str_clear(&buf);
     }
 
     json_object_set_new(root, "inserts", json_inserts);
@@ -2817,6 +2808,7 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
     json_decref(root);
   }
 
+  sp_str_free(&buf);
   return EXIT_SUCCESS;
 }
 
