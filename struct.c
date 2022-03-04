@@ -181,9 +181,14 @@ is_cpp_file(const char *file)
 static enum sp_ts_SourceDomain
 get_domain(const char *file)
 {
-  return strcasestr(file, "/linux-axis") != NULL ? LINUX_KERNEL_DOMAIN
-         : strcasestr(file, "/dists/") != NULL   ? SYSLOG_DOMAIN
-                                                 : DEFAULT_DOMAIN;
+  if (strcasestr(file, "/linux-axis") != NULL)
+    return LINUX_KERNEL_DOMAIN;
+  if (strcasestr(file, "/modartpec") != NULL)
+    return LINUX_KERNEL_DOMAIN;
+  if (strcasestr(file, "/dists/") != NULL)
+    return SYSLOG_DOMAIN;
+
+  return DEFAULT_DOMAIN;
 }
 
 static TSNode
@@ -2017,6 +2022,595 @@ struct _GValue {
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
 
+    } else if (strcmp(result->type, "snd_pcm") == 0) {
+      //kernel
+#if 0
+struct snd_pcm {
+	struct snd_card *card;
+	struct list_head list;
+	int device; /* device number */
+	unsigned int info_flags;
+	unsigned short dev_class;
+	unsigned short dev_subclass;
+	char id[64];
+	char name[80];
+	struct snd_pcm_str streams[2];
+	struct mutex open_mutex;
+	wait_queue_head_t open_wait;
+	void *private_data;
+	void (*private_free) (struct snd_pcm *pcm);
+	bool internal; /* pcm is for internal use only */
+	bool nonatomic; /* whole PCM operations are in non-atomic context */
+};
+#endif
+      result->format = "%p:dev[%d]id[%s]name[%s]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, "(void *)", pprefix, result->variable, ", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->device : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->id : \"\"",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_pcm_substream") == 0) {
+#if 0
+struct snd_pcm_substream {
+	struct snd_pcm *pcm;
+	struct snd_pcm_str *pstr;
+	void *private_data;		/* copied from pcm->private_data */
+	int number;
+	char name[32];			/* substream name */
+	int stream;			/* stream (direction) */
+#endif
+      result->format = "pcm[%p]number[%d]name[%s]stream[%d]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->nummer : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->stream : 1337",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_soc_dai") == 0) {
+#if 0
+struct snd_soc_dai {
+	const char *name;
+	int id;
+	struct device *dev;
+#endif
+      result->format = "name[%s]id[%d]dev[%p]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->id : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_pcm_runtime") == 0) {
+#if 0
+#if 0
+struct snd_pcm_runtime {
+	struct snd_pcm_substream *trigger_master;
+	struct timespec trigger_tstamp;	/* trigger timestamp */
+	bool trigger_tstamp_latched;     /* trigger timestamp latched in low-level driver/hardware */
+	int overrange;
+	snd_pcm_uframes_t avail_max;
+	snd_pcm_uframes_t hw_ptr_base;	/* Position at buffer restart */
+	snd_pcm_uframes_t hw_ptr_interrupt; /* Position at interrupt time */
+	unsigned long hw_ptr_jiffies;	/* Time when hw_ptr is updated */
+	unsigned long hw_ptr_buffer_jiffies; /* buffer time in jiffies */
+	snd_pcm_sframes_t delay;	/* extra delay; typically FIFO size */
+	u64 hw_ptr_wrap;                /* offset for hw_ptr due to boundary wrap-around */
+	/* -- HW params -- */
+	snd_pcm_access_t access;	/* access mode */
+	snd_pcm_format_t format;	/* SNDRV_PCM_FORMAT_* */
+	snd_pcm_subformat_t subformat;	/* subformat */
+	unsigned int rate;		/* rate in Hz */
+	unsigned int channels;		/* channels */
+	snd_pcm_uframes_t period_size;	/* period size */
+	unsigned int periods;		/* periods */
+	snd_pcm_uframes_t buffer_size;	/* buffer size */
+	snd_pcm_uframes_t min_align;	/* Min alignment for the format */
+	size_t byte_align
+#endif
+      result->format = "name[%s]id[%d]dev[%p]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->id : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+#endif
+      /* TODO */
+    } else if (strcmp(result->type, "snd_pcm_hardware") == 0) {
+#if 0
+struct snd_pcm_hardware {
+  unsigned int info;		/* SNDRV_PCM_INFO_* */
+  u64 formats;			/* SNDRV_PCM_FMTBIT_* */
+  unsigned int rates;		/* SNDRV_PCM_RATE_* */
+  unsigned int rate_min;		/* min rate */
+  unsigned int rate_max;		/* max rate */
+  unsigned int channels_min;	/* min channels */
+  unsigned int channels_max;	/* max channels */
+  size_t buffer_bytes_max;	/* max buffer size */
+  size_t period_bytes_min;	/* min period size */
+  size_t period_bytes_max;	/* max period size */
+  unsigned int periods_min;	/* min # of periods */
+  unsigned int periods_max;	/* max # of periods */
+  size_t fifo_size;		/* fifo size in bytes */
+};
+#endif
+      result->format =
+        "info[%u]formats[%llu]rates[%u]rate_min[%u]rate_max[%u]channels_min[%u]"
+        "channels_max[%u]buffer_bytes_max[%zu]period_bytes_min[%zu]period_"
+        "bytes_max[%zu]periods_min[%u]periods_max[%u]fifo_size[%zu]}";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->info : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->formats : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->rates : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->rate_min : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->rate_max : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->channels_min : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->channels_max : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->buffer_bytes_max : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->period_bytes_min : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->period_bytes_max : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->periods_min : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->periods_max : 1337, ", NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->fifo_size : 1337", NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_pcm_ops") == 0) {
+#if 0
+struct snd_pcm_ops {
+  int (*open)(struct snd_pcm_substream *substream);
+  int (*close)(struct snd_pcm_substream *substream);
+  int (*ioctl)(struct snd_pcm_substream * substream, unsigned int cmd, void *arg);
+  int (*hw_params)(struct snd_pcm_substream *substream, struct snd_pcm_hw_params *params);
+  int (*hw_free)(struct snd_pcm_substream *substream);
+  int (*prepare)(struct snd_pcm_substream *substream);
+  int (*trigger)(struct snd_pcm_substream *substream, int cmd);
+  snd_pcm_uframes_t (*pointer)(struct snd_pcm_substream *substream);
+  int (*get_time_info)(struct snd_pcm_substream *substream, struct timespec *system_ts, struct timespec *audio_ts, struct snd_pcm_audio_tstamp_config *audio_tstamp_config, struct snd_pcm_audio_tstamp_report *audio_tstamp_report);
+  int (*copy)(struct snd_pcm_substream *substream, int channel, snd_pcm_uframes_t pos, void __user *buf, snd_pcm_uframes_t count);
+  int (*silence)(struct snd_pcm_substream *substream, int channel, snd_pcm_uframes_t pos, snd_pcm_uframes_t count); struct page *(*page)(struct snd_pcm_substream *substream, unsigned long offset);
+  int (*mmap)(struct snd_pcm_substream *substream, struct vm_area_struct *vma);
+  int (*ack)(struct snd_pcm_substream *substream);
+};
+#endif
+      result->format = "open[%pF]close[%pF]ioctl[%pF]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->open : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->close : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->ioctl : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_pcm_ops") == 0) {
+#if 0
+struct snd_soc_card {
+	const char *name;
+	const char *long_name;
+	const char *driver_name;
+	struct device *dev;
+	struct snd_card *snd_card;
+	struct module *owner;
+	struct mutex mutex;
+	struct mutex dapm_mutex;
+	bool instantiated;
+	int (*probe)(struct snd_soc_card *card);
+	int (*late_probe)(struct snd_soc_card *card);
+	int (*remove)(struct snd_soc_card *card);
+#endif
+      result->format = "name[%s]long_name[%s]driver_name[%s]dev[%p]snd_card[%p]probe[%pF]late_probe[%pF]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->long_name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->driver_name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->snd_card : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->probe : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->late_probe : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_card") == 0) {
+#if 0
+struct snd_card {
+  int number;			/* number of soundcard (index to snd_cards) */
+  char id[16];			/* id string of this card */
+  char driver[16];		/* driver name */
+  char shortname[32];		/* short name of this soundcard */
+  char longname[80];		/* name of this soundcard */
+  char irq_descr[32];		/* Interrupt description */
+  char mixername[80];		/* mixer name */
+  char components[128];		/* card components delimited with space */
+  struct module *module;		/* top-level module */
+  void *private_data;		/* private data for soundcard */
+  void (*private_free) (struct snd_card *card); /* callback for freeing of private data */
+  struct list_head devices;	/* devices */
+  struct device ctl_dev;		/* control device */
+  unsigned int last_numid;	/* last used numeric ID */
+  struct rw_semaphore controls_rwsem;	/* controls list lock */
+  rwlock_t ctl_files_rwlock;	/* ctl_files list lock */
+  int controls_count;		/* count of all controls */
+  int user_ctl_count;		/* count of all user controls */
+  struct list_head controls;	/* all controls for this card */
+  struct list_head ctl_files;	/* active control files */
+  struct mutex user_ctl_lock;	/* protects user controls against concurrent access */
+  struct snd_info_entry *proc_root;	/* root for soundcard specific files */
+  struct snd_info_entry *proc_id;	/* the card id */
+  struct proc_dir_entry *proc_root_link;	/* number link to real id */
+  struct list_head files_list;	/* all files associated to this card */
+  struct snd_shutdown_f_ops *s_f_ops; /* file operations in the shutdown state */
+  spinlock_t files_lock;		/* lock the files for this card */
+  int shutdown;			/* this card is going down */
+  struct completion *release_completion;
+  struct device *dev;		/* device assigned to this card */
+  struct device card_dev;		/* cardX object for sysfs */
+#endif
+      result->format = "number[%d]id[%s]driver[%s]shortname[%s]longname[%s]irq_descr[%s]mixername[%s]components[%s]dev[%p]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->number : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->id : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->driver : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->shortname : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->longname : \"\", ",
+                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->irq_descr : \"\", ",
+                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->mixername : \"\", ",
+                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->components : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_soc_component") == 0) {
+#if 0
+struct snd_soc_component {
+  const char *name;
+  int id;
+  const char *name_prefix;
+  struct device *dev;
+  struct snd_soc_card *card;
+  unsigned int active;
+  unsigned int ignore_pmdown_time:1; /* pmdown_time is ignored at stop */
+  unsigned int registered_as_component:1;
+  unsigned int auxiliary:1; /* for auxiliary component of the card */
+  unsigned int suspended:1; /* is in suspend PM state */
+  struct list_head list;
+  struct list_head card_aux_list; /* for auxiliary bound components */
+  struct list_head card_list;
+  struct snd_soc_dai_driver *dai_drv;
+  int num_dai;
+  const struct snd_soc_component_driver *driver;
+  struct list_head dai_list;
+  int (*read)(struct snd_soc_component *, unsigned int, unsigned int *);
+  int (*write)(struct snd_soc_component *, unsigned int, unsigned int);
+#endif
+      result->format = "name[%s]id[%d]name_prefix[%s]dev[%p]card[%p]read[%pF]write[%pF]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->id : 1337, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name_prefix : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->card : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->read : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->write : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_soc_platform") == 0) {
+#if 0
+struct snd_soc_platform {
+  struct device *dev;
+  const struct snd_soc_platform_driver *driver;
+  struct list_head list;
+  struct snd_soc_component component;
+};
+#endif
+      result->format = "dev[%p]driver[%p]component[%p]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->driver : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? &", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->component : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
+    } else if (strcmp(result->type, "snd_soc_platform_driver") == 0) {
+#if 0
+struct snd_soc_platform_driver {
+  int (*probe)(struct snd_soc_platform *);
+  int (*remove)(struct snd_soc_platform *);
+  struct snd_soc_component_driver component_driver;
+  /* pcm creation and destruction */
+  int (*pcm_new)(struct snd_soc_pcm_runtime *);
+  void (*pcm_free)(struct snd_pcm *);
+#endif
+      result->format = "probe[%pF]remove[%pF]component_driver[%pF]pcm_new[%pF]pcm_free[%pF]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->probe : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->remove : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? &", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->component_driver : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm_new : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm_free : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_soc_component_driver") == 0) {
+#if 0
+struct snd_soc_component_driver {
+  const char *name;
+  const struct snd_kcontrol_new *controls;
+  unsigned int num_controls;
+  const struct snd_soc_dapm_widget *dapm_widgets;
+  unsigned int num_dapm_widgets;
+  const struct snd_soc_dapm_route *dapm_routes;
+  unsigned int num_dapm_routes;
+  int (*probe)(struct snd_soc_component *);
+  void (*remove)(struct snd_soc_component *)
+#endif
+      result->format = "name[%s]probe[%pF]remove[%pF]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name : \"\", ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->probe : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->remove : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "uchar") == 0 || //
                strcmp(result->type, "unsigned char") == 0 || //
                strcmp(result->type, "guchar") == 0 || //
@@ -2074,7 +2668,8 @@ struct _GValue {
                strcmp(result->type, "long long int") == 0) {
       __format_numeric(result, pprefix, "%lld");
     } else if (strcmp(result->type, "unsigned long long") == 0 || //
-               strcmp(result->type, "unsigned long long int") == 0) {
+               strcmp(result->type, "unsigned long long int") == 0 ||
+               strcmp(result->type, "u64") == 0) {
       __format_numeric(result, pprefix, "%llu");
     } else if (strcmp(result->type, "off_t") == 0) {
       __format_numeric(result, pprefix, "%jd");
@@ -2841,7 +3436,8 @@ main(int argc, const char *argv[])
         return main_print(in_file);
       }
     }
-    fprintf(stderr, "%s crunch|line|print|branches file line column\n", argv[0]);
+    fprintf(stderr, "%s crunch|line|print|branches file line column\n",
+            argv[0]);
     return EXIT_FAILURE;
   }
   in_type   = argv[1];
