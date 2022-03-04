@@ -2326,7 +2326,8 @@ struct snd_soc_card {
 	int (*late_probe)(struct snd_soc_card *card);
 	int (*remove)(struct snd_soc_card *card);
 #endif
-      result->format = "name[%s]long_name[%s]driver_name[%s]dev[%p]snd_card[%p]probe[%pF]late_probe[%pF]";
+      result->format = "name[%s]long_name[%s]driver_name[%s]dev[%p]snd_card[%p]"
+                       "probe[%pF]late_probe[%pF]";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
@@ -2335,28 +2336,28 @@ struct snd_soc_card {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->long_name : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->long_name : \"\", ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->driver_name : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->driver_name : \"\", ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->snd_card : NULL, ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->snd_card : NULL, ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->probe : NULL, ",
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->late_probe : NULL",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->late_probe : NULL", NULL);
       } else {
         assert(false);
       }
@@ -2399,7 +2400,8 @@ struct snd_card {
   struct device *dev;		/* device assigned to this card */
   struct device card_dev;		/* cardX object for sysfs */
 #endif
-      result->format = "number[%d]id[%s]driver[%s]shortname[%s]longname[%s]irq_descr[%s]mixername[%s]components[%s]dev[%p]";
+      result->format = "number[%d]id[%s]driver[%s]shortname[%s]longname[%s]irq_"
+                       "descr[%s]mixername[%s]components[%s]dev[%p]";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
@@ -2416,21 +2418,21 @@ struct snd_card {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->shortname : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->shortname : \"\", ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->longname : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->longname : \"\", ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->irq_descr : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->irq_descr : \"\", ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->mixername : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->mixername : \"\", ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->components : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->components : \"\", ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL",
@@ -2465,7 +2467,8 @@ struct snd_soc_component {
   int (*read)(struct snd_soc_component *, unsigned int, unsigned int *);
   int (*write)(struct snd_soc_component *, unsigned int, unsigned int);
 #endif
-      result->format = "name[%s]id[%d]name_prefix[%s]dev[%p]card[%p]read[%pF]write[%pF]";
+      result->format =
+        "name[%s]id[%d]name_prefix[%s]dev[%p]card[%p]read[%pF]write[%pF]";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
@@ -2478,8 +2481,8 @@ struct snd_soc_component {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->name_prefix : \"\", ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->name_prefix : \"\", ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
@@ -2526,8 +2529,8 @@ struct snd_soc_platform {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? &", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->component : NULL",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->component : NULL", NULL);
       } else {
         assert(false);
       }
@@ -2546,7 +2549,8 @@ struct snd_soc_platform_driver {
   int (*pcm_new)(struct snd_soc_pcm_runtime *);
   void (*pcm_free)(struct snd_pcm *);
 #endif
-      result->format = "probe[%pF]remove[%pF]component_driver[%pF]pcm_new[%pF]pcm_free[%pF]";
+      result->format =
+        "probe[%pF]remove[%pF]component_driver[%pF]pcm_new[%pF]pcm_free[%pF]";
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       if (result->pointer) {
@@ -2559,12 +2563,12 @@ struct snd_soc_platform_driver {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? &", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->component_driver : NULL, ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->component_driver : NULL, ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm_new : NULL, ",
-                       NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable,
+                       "->pcm_new : NULL, ", NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm_free : NULL",
@@ -2603,6 +2607,52 @@ struct snd_soc_component_driver {
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
         sp_str_appends(&buf_tmp, pprefix, result->variable, "->remove : NULL",
+                       NULL);
+      } else {
+        assert(false);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "snd_soc_pcm_runtime") == 0) {
+#if 0
+struct snd_soc_pcm_runtime {
+  struct device *dev;
+  struct snd_soc_card *card;
+  struct snd_soc_dai_link *dai_link;
+  struct mutex pcm_mutex;
+  enum snd_soc_pcm_subclass pcm_subclass;
+  struct snd_pcm_ops ops;
+  unsigned int dev_registered:1;
+  /* Dynamic PCM BE runtime data */
+  struct snd_soc_dpcm_runtime dpcm[2];
+  int fe_compr;
+  long pmdown_time;
+  unsigned char pop_wait:1;
+  /* runtime devices */
+  struct snd_pcm *pcm;
+  struct snd_compr *compr;
+  struct snd_soc_codec *codec;
+  struct snd_soc_platform *platform;
+  struct snd_soc_dai *codec_dai;
+  struct snd_soc_dai *cpu_dai;
+  struct snd_soc_component *component; /* Only valid for AUX dev rtds */
+#endif
+      result->format = "dev[%p]card[%p]pcm[%p]";
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->dev : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->card : NULL, ",
+                       NULL);
+
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->pcm : NULL",
                        NULL);
       } else {
         assert(false);
@@ -2657,11 +2707,14 @@ struct snd_soc_component_driver {
                strcmp(result->type, "uint32_t") == 0) {
       __format_numeric(result, pprefix, "%u");
     } else if (strcmp(result->type, "long") == 0 || //
-               strcmp(result->type, "long int") == 0) {
+               strcmp(result->type, "long int") == 0 || //
+               strcmp(result->type, "snd_pcm_sframes_t") == 0 || //
+               strcmp(result->type, "signed long") == 0) {
       __format_numeric(result, pprefix, "%ld");
     } else if (strcmp(result->type, "unsigned long int") == 0 || //
                strcmp(result->type, "long unsigned int") == 0 || //
-               strcmp(result->type, "unsigned long") == 0 ||
+               strcmp(result->type, "snd_pcm_uframes_t") == 0 || //
+               strcmp(result->type, "unsigned long") == 0 || //
                strcmp(result->type, "gulong") == 0) {
       __format_numeric(result, pprefix, "%lu");
     } else if (strcmp(result->type, "long long") == 0 || //
