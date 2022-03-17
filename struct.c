@@ -2088,7 +2088,7 @@ struct snd_pcm_substream {
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
-        sp_str_appends(&buf_tmp, pprefix, result->variable, "->nummer : 1337, ",
+        sp_str_appends(&buf_tmp, pprefix, result->variable, "->number : 1337, ",
                        NULL);
 
         sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", NULL);
