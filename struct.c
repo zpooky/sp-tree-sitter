@@ -1905,6 +1905,19 @@ struct _GValue {
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
 
+    } else if (strcmp(result->type, "FILE") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%p";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, "(void *)", pprefix, result->variable, NULL);
+      } else {
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+
     } else if (strcmp(result->type, "GFile") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1916,6 +1929,23 @@ struct _GValue {
       } else {
         sp_str_appends(&buf_tmp, "g_file_get_path(&", pprefix, result->variable,
                        ")", NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "GString") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%s";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                       result->variable,
+                       "->str"
+                       " : \"(NULL)\"",
+                       NULL);
+      } else {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, ".str", NULL);
       }
       free(result->complex_raw);
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
