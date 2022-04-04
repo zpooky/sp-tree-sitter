@@ -998,6 +998,209 @@ __format_numeric(struct arg_list *result,
   }
 }
 
+static bool
+__format_libxml2(struct sp_ts_Context *ctx,
+                 struct arg_list *result,
+                 const char *pprefix)
+{
+  (void)ctx;
+  if (strcmp(result->type, "xmlNode") == 0 ||
+      strcmp(result->type, "xmlNodePtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]line[%u]";
+    if (result->pointer || strcmp(result->type, "xmlNodePtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->line", "1337", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".line", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlNotation") == 0 ||
+      strcmp(result->type, "xmlNotationPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]line[%u]";
+    if (result->pointer || strcmp(result->type, "xmlNodePtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->line", "1337", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".line", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlAtrr") == 0 ||
+      strcmp(result->type, "xmlAttrPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]";
+    if (result->pointer || strcmp(result->type, "xmlAttrPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlAttribute") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlDoc") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlElement") == 0 ||
+      strcmp(result->type, "xmlElementPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]";
+    if (result->pointer || strcmp(result->type, "xmlElementPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlEntity") == 0 ||
+      strcmp(result->type, "xmlEntityPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]URI[%S]";
+    if (result->pointer || strcmp(result->type, "xmlEntityPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->URI", " : \"(NULL)\", ",
+                     NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".URI, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlID") == 0 ||
+      strcmp(result->type, "xmlIDPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]line[%u]";
+    if (result->pointer || strcmp(result->type, "xmlIDPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->lineno", "1337", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".lineno", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlRef") == 0 ||
+      strcmp(result->type, "xmlRefPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "name[%s]line[%u]";
+    if (result->pointer || strcmp(result->type, "xmlRefPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->lineno", "1337", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".lineno", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  return false;
+}
+
 static void
 __format(struct sp_ts_Context *ctx,
          struct arg_list *result,
@@ -1144,7 +1347,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "gchar") == 0 || //
                strcmp(result->type, "gint8") == 0 || //
                strcmp(result->type, "int8") == 0 || //
-               strcmp(result->type, "int8_t") == 0) {
+               strcmp(result->type, "int8_t") == 0 ||
+               strcmp(result->type, "xmlChar") == 0) {
       if (result->is_array) {
         sp_str buf_tmp;
         result->format = "%.*s";
@@ -1451,7 +1655,6 @@ struct _GValue {
       result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
       result->complex_printf = true;
       sp_str_free(&buf_tmp);
-
     } else if (strcmp(result->type, "GIOChannel") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
@@ -1853,12 +2056,10 @@ struct _GValue {
       sp_str_init(&buf_tmp, 0);
 
       if (result->pointer) {
-        result->format = "len[%u]%s";
+        result->format = "len[%u]";
         sp_str_appends(&buf_tmp, pprefix, result->variable,
                        " ? g_hash_table_size(", pprefix, result->variable, ")",
-                       " : 0", NULL);
-        sp_str_appends(&buf_tmp, ", ", pprefix, result->variable, " ? ", "\"\"",
-                       " : \"(NULL)\"", NULL);
+                       " : 1337", NULL);
       } else {
         result->format = "len[%u]";
         sp_str_appends(&buf_tmp, "g_hash_table_size(&", pprefix,
@@ -2108,6 +2309,7 @@ struct snd_pcm_substream {
 	int number;
 	char name[32];			/* substream name */
 	int stream;			/* stream (direction) */
+};
 #endif
       result->format = "pcm[%p]number[%d]name[%s]stream[%d]";
       sp_str buf_tmp;
@@ -2142,6 +2344,7 @@ struct snd_soc_dai {
 	const char *name;
 	int id;
 	struct device *dev;
+};
 #endif
       result->format = "name[%s]id[%d]dev[%p]";
       sp_str buf_tmp;
@@ -2192,6 +2395,7 @@ struct snd_pcm_runtime {
 	snd_pcm_uframes_t buffer_size;	/* buffer size */
 	snd_pcm_uframes_t min_align;	/* Min alignment for the format */
 	size_t byte_align
+};
 #endif
       result->format = "name[%s]id[%d]dev[%p]";
       sp_str buf_tmp;
@@ -2429,6 +2633,7 @@ struct snd_card {
   struct completion *release_completion;
   struct device *dev;		/* device assigned to this card */
   struct device card_dev;		/* cardX object for sysfs */
+};
 #endif
       result->format = "number[%d]id[%s]driver[%s]shortname[%s]longname[%s]irq_"
                        "descr[%s]mixername[%s]components[%s]dev[%p]";
@@ -2496,6 +2701,7 @@ struct snd_soc_component {
   struct list_head dai_list;
   int (*read)(struct snd_soc_component *, unsigned int, unsigned int *);
   int (*write)(struct snd_soc_component *, unsigned int, unsigned int);
+};
 #endif
       result->format =
         "name[%s]id[%d]name_prefix[%s]dev[%p]card[%p]read[%pF]write[%pF]";
@@ -2578,6 +2784,7 @@ struct snd_soc_platform_driver {
   /* pcm creation and destruction */
   int (*pcm_new)(struct snd_soc_pcm_runtime *);
   void (*pcm_free)(struct snd_pcm *);
+};
 #endif
       result->format =
         "probe[%pF]remove[%pF]component_driver[%pF]pcm_new[%pF]pcm_free[%pF]";
@@ -2622,6 +2829,7 @@ struct snd_soc_component_driver {
   unsigned int num_dapm_routes;
   int (*probe)(struct snd_soc_component *);
   void (*remove)(struct snd_soc_component *)
+};
 #endif
       result->format = "name[%s]probe[%pF]remove[%pF]";
       sp_str buf_tmp;
@@ -2668,6 +2876,7 @@ struct snd_soc_pcm_runtime {
   struct snd_soc_dai *codec_dai;
   struct snd_soc_dai *cpu_dai;
   struct snd_soc_component *component; /* Only valid for AUX dev rtds */
+};
 #endif
       result->format = "dev[%p]card[%p]pcm[%p]";
       sp_str buf_tmp;
@@ -2789,6 +2998,7 @@ struct snd_soc_pcm_runtime {
       __format_numeric(result, pprefix, "%f");
     } else if (strcmp(result->type, "long double") == 0) {
       __format_numeric(result, pprefix, "%Lf");
+    } else if (__format_libxml2(ctx, result, pprefix)) {
     } else {
       if (strchr(result->type, ' ') == NULL) {
         const char *prefix = "&";
