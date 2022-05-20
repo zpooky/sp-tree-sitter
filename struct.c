@@ -18,8 +18,10 @@
 
 enum sp_ts_SourceDomain {
   DEFAULT_DOMAIN = 0,
+  LOG_ERR_DOMAIN,
   SYSLOG_DOMAIN,
   LINUX_KERNEL_DOMAIN,
+  F_ERROR_DOMAIN,
 };
 
 struct sp_ts_Context {
@@ -185,6 +187,10 @@ get_domain(const char *file)
     return LINUX_KERNEL_DOMAIN;
   if (strcasestr(file, "/modartpec") != NULL)
     return LINUX_KERNEL_DOMAIN;
+  if (strcasestr(file, "/workspace/sources/ioboxd") != NULL)
+    return LOG_ERR_DOMAIN;
+  if (strcasestr(file, "/eventbridge-plugins-propertychanged") != NULL)
+    return F_ERROR_DOMAIN;
   if (strcasestr(file, "/dists/") != NULL)
     return SYSLOG_DOMAIN;
 
@@ -1058,10 +1064,10 @@ __format_libxml2(struct sp_ts_Context *ctx,
     result->format = "name[%s]";
     if (result->pointer || strcmp(result->type, "xmlAttrPtr") == 0) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
-                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     pprefix, result->variable, "->name", " : \"(NULL)\"",
                      NULL);
     } else {
-      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1077,10 +1083,10 @@ __format_libxml2(struct sp_ts_Context *ctx,
     result->format = "name[%s]";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
-                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     pprefix, result->variable, "->name", " : \"(NULL)\"",
                      NULL);
     } else {
-      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1096,10 +1102,10 @@ __format_libxml2(struct sp_ts_Context *ctx,
     result->format = "name[%s]";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
-                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     pprefix, result->variable, "->name", " : \"(NULL)\"",
                      NULL);
     } else {
-      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1116,10 +1122,10 @@ __format_libxml2(struct sp_ts_Context *ctx,
     result->format = "name[%s]";
     if (result->pointer || strcmp(result->type, "xmlElementPtr") == 0) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
-                     pprefix, result->variable, "->name", " : \"(NULL)\", ",
+                     pprefix, result->variable, "->name", " : \"(NULL)\"",
                      NULL);
     } else {
-      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".name", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1133,7 +1139,7 @@ __format_libxml2(struct sp_ts_Context *ctx,
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
 
-    result->format = "name[%s]URI[%S]";
+    result->format = "name[%s]URI[%s]";
     if (result->pointer || strcmp(result->type, "xmlEntityPtr") == 0) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
                      pprefix, result->variable, "->name", " : \"(NULL)\", ",
@@ -1144,6 +1150,25 @@ __format_libxml2(struct sp_ts_Context *ctx,
     } else {
       sp_str_appends(&buf_tmp, pprefix, result->variable, ".name, ", NULL);
       sp_str_appends(&buf_tmp, pprefix, result->variable, ".URI, ", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  if (strcmp(result->type, "xmlDoc") == 0 ||
+      strcmp(result->type, "xmlDocPtr") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "URL[%s]";
+    if (result->pointer || strcmp(result->type, "xmlDocPtr") == 0) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", //
+                     pprefix, result->variable, "->URL", " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".URL", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1706,6 +1731,22 @@ struct _GValue {
       sp_str_free(&buf_tmp);
     } else if (strcmp(result->type, "gid_t") == 0 ||
                strcmp(result->type, "uid_t") == 0) {
+      sp_str buf_tmp;
+      sp_str_init(&buf_tmp, 0);
+      result->format = "%u";
+      if (result->pointer) {
+        sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
+                       "(unsigned int)", pprefix, result->variable, " : 1337",
+                       NULL);
+      } else {
+        sp_str_appends(&buf_tmp, "(unsigned int)", pprefix, result->variable,
+                       NULL);
+      }
+      free(result->complex_raw);
+      result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+      result->complex_printf = true;
+      sp_str_free(&buf_tmp);
+    } else if (strcmp(result->type, "pid_t") == 0) {
       sp_str buf_tmp;
       sp_str_init(&buf_tmp, 0);
       result->format = "%u";
@@ -3064,8 +3105,12 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
 
   if (ctx->domain == DEFAULT_DOMAIN) {
     sp_str_append(&buf, "  printf(");
+  } else if (ctx->domain == LOG_ERR_DOMAIN) {
+    sp_str_append(&buf, "  log_err(");
   } else if (ctx->domain == SYSLOG_DOMAIN) {
     sp_str_append(&buf, "  syslog(LOG_ERR, ");
+  } else if (ctx->domain == F_ERROR_DOMAIN) {
+    sp_str_append(&buf, "  f_error(");
   } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
@@ -3675,8 +3720,12 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
 
           if (ctx->domain == DEFAULT_DOMAIN) {
             sp_str_append(&buf, "printf(");
+          } else if (ctx->domain == LOG_ERR_DOMAIN) {
+            sp_str_append(&buf, "  log_err(");
           } else if (ctx->domain == SYSLOG_DOMAIN) {
             sp_str_append(&buf, "syslog(LOG_ERR, ");
+          } else if (ctx->domain == F_ERROR_DOMAIN) {
+            sp_str_append(&buf, "  f_error(");
           } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
             sp_str_append(&buf, "printk(KERN_ERR ");
           }
