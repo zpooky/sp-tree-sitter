@@ -297,7 +297,7 @@ static bool
 is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
 {
   TSNode enum_list;
-#define MAX_LITERALS 100
+#define MAX_LITERALS 200
   int64_t literals[MAX_LITERALS] = {0};
   size_t n_literals              = 0;
 
@@ -405,7 +405,7 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
               if (tmp_mask & literals[a]) {
                 return false;
               }
-              tmp_mask &= literals[a];
+              tmp_mask |= literals[a];
             }
           } else if (strcmp(ts_node_type(op), "|") == 0) {
             //TODO
@@ -427,7 +427,7 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
               if (tmp_mask & literals[a]) {
                 return false;
               }
-              tmp_mask &= literals[a];
+              tmp_mask |= literals[a];
             }
 
           } else {
