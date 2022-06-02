@@ -22,6 +22,7 @@ enum sp_ts_SourceDomain {
   SYSLOG_DOMAIN,
   LINUX_KERNEL_DOMAIN,
   F_ERROR_DOMAIN,
+  AX_ERROR_DOMAIN,
 };
 
 struct sp_ts_Context {
@@ -191,6 +192,9 @@ get_domain(const char *file)
     return LOG_ERR_DOMAIN;
   if (strcasestr(file, "/eventbridge-plugins-propertychanged") != NULL)
     return F_ERROR_DOMAIN;
+  if (strcasestr(file, "/libevent2") != NULL ||
+      strcasestr(file, "/libconfiguration-event") != NULL)
+    return AX_ERROR_DOMAIN;
   if (strcasestr(file, "/dists/") != NULL)
     return SYSLOG_DOMAIN;
 
@@ -3099,6 +3103,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   size_t line_length;
   size_t complete = 0;
   struct arg_list *field_it;
+  bool trailing_newline = true;
 
   sp_str_init(&buf, 0);
   sp_str_init(&line_buf, 0);
@@ -3111,6 +3116,9 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
     sp_str_append(&buf, "  syslog(LOG_ERR, ");
   } else if (ctx->domain == F_ERROR_DOMAIN) {
     sp_str_append(&buf, "  f_error(");
+  } else if (ctx->domain == AX_ERROR_DOMAIN) {
+    sp_str_append(&buf, "  ax_error(");
+    trailing_newline = false;
   } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
@@ -3137,7 +3145,10 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
     sp_str_clear(&line_buf);
   } //while
 
-  sp_str_append(&buf, "\\n\", __func__");
+  if (trailing_newline) {
+    sp_str_append(&buf, "\\n");
+  }
+  sp_str_append(&buf, "\", __func__");
   field_it = fields;
   while (field_it) {
     if (field_it->complete) {
@@ -3718,6 +3729,7 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
             sp_str_append(&buf, "  ");
           }
 
+          bool trailing_newline = true;
           if (ctx->domain == DEFAULT_DOMAIN) {
             sp_str_append(&buf, "printf(");
           } else if (ctx->domain == LOG_ERR_DOMAIN) {
@@ -3726,12 +3738,18 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
             sp_str_append(&buf, "syslog(LOG_ERR, ");
           } else if (ctx->domain == F_ERROR_DOMAIN) {
             sp_str_append(&buf, "  f_error(");
+          } else if (ctx->domain == AX_ERROR_DOMAIN) {
+            sp_str_append(&buf, "  ax_error(");
+            trailing_newline = false;
           } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
             sp_str_append(&buf, "printk(KERN_ERR ");
           }
 
           sp_str_appends(&buf, "\"%s:", it->context, NULL);
-          sp_str_append(&buf, "\\n\", __func__);");
+          if (trailing_newline) {
+            sp_str_append(&buf, "\\n");
+          }
+          sp_str_append(&buf, "\", __func__);");
           json_object_set_new(json_insert, "data",
                               json_string(sp_str_c_str(&buf)));
         }
