@@ -659,6 +659,29 @@ __rec_search(struct sp_ts_Context *ctx,
 }
 
 static char *
+scoped_type_identifier_Type(struct sp_ts_Context *ctx, TSNode subject)
+{
+  TSNode tmp;
+  TSNode it = subject;
+  while (1) {
+    /* XXX store namespace  */
+    tmp = find_direct_chld_by_type(it, "scoped_namespace_identifier");
+    if (!ts_node_is_null(tmp)) {
+      it = tmp;
+    } else {
+      break;
+    }
+  }
+
+  tmp = find_direct_chld_by_type(subject, "type_identifier");
+  if (!ts_node_is_null(tmp)) {
+    return (sp_struct_value(ctx, tmp));
+  }
+
+  return NULL;
+}
+
+static char *
 __field_type(struct sp_ts_Context *ctx,
              TSNode subject,
              struct arg_list *result,
@@ -840,6 +863,13 @@ __field_type(struct sp_ts_Context *ctx,
               } else {
                 fprintf(stderr, "5.2.2\n");
               }
+            }
+          } else {
+            TSNode ns_id;
+            ns_id = find_direct_chld_by_type(subject, "scoped_type_identifier");
+            if (!ts_node_is_null(ns_id)) {
+              type = scoped_type_identifier_Type(ctx, ns_id);
+            } else {
             }
           }
         }
@@ -3966,3 +3996,8 @@ main(int argc, const char *argv[])
 //
 // TODO enum bitset FIRST=1 SECOND=2 THRID=4, var=FIRST|SECOND
 //      if enum has explicit values and if binary they do not owerlap = assume enum bitset
+
+// TODO detect cycles
+// struct dummy_list {
+//   struct dummy_list *rec;
+// };
