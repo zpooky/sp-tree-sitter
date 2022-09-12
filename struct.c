@@ -842,6 +842,13 @@ __field_type(struct sp_ts_Context *ctx,
                 type_id = find_direct_chld_by_type(temp_t, "type_identifier");
                 if (!ts_node_is_null(type_id)) {
                   type = sp_struct_value(ctx, type_id);
+                } else {
+                  TSNode ns_id2;
+                  ns_id2 =
+                    find_direct_chld_by_type(temp_t, "scoped_type_identifier");
+                  if (!ts_node_is_null(ns_id2)) {
+                    type = scoped_type_identifier_Type(ctx, ns_id2);
+                  }
                 }
               } else {
                 fprintf(stderr, "HERE\n");
