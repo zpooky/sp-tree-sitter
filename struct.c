@@ -23,7 +23,6 @@ tree_sitter_c(void);
 extern const TSLanguage *
 tree_sitter_cpp(void);
 
-
 static struct arg_list *
 __field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix);
 
@@ -176,6 +175,7 @@ sp_find_parent(TSNode subject,
   TSNode result = {0};
 
   while (!ts_node_is_null(it)) {
+    /* fprintf(stderr, "%s:%s\n", __func__, ts_node_type(it)); */
     if (strcmp(ts_node_type(it), needle0) == 0 ||
         strcmp(ts_node_type(it), needle1) == 0 ||
         strcmp(ts_node_type(it), needle2) == 0 ||
@@ -834,6 +834,18 @@ __field_type(struct sp_ts_Context *ctx,
             if (!ts_node_is_null(ns_id)) {
               type = scoped_type_identifier_Type(ctx, ns_id);
             } else {
+              TSNode temp_t;
+              temp_t = find_direct_chld_by_type(subject, "template_type");
+              if (!ts_node_is_null(temp_t)) {
+                //TODO store template arguments
+                TSNode type_id;
+                type_id = find_direct_chld_by_type(temp_t, "type_identifier");
+                if (!ts_node_is_null(type_id)) {
+                  type = sp_struct_value(ctx, type_id);
+                }
+              } else {
+                fprintf(stderr, "HERE\n");
+              }
             }
           }
         }
@@ -975,7 +987,6 @@ xx(struct sp_ts_Context *ctx,
   /* fprintf(stderr, "  %s:}\n", __func__); */
   return result;
 }
-
 
 static struct arg_list *
 __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
@@ -1396,16 +1407,17 @@ main_print(const char *in_file)
   struct sp_ts_Context ctx = {0};
   if (mmap_file(in_file, &ctx.file) == 0) {
     TSNode root;
-    TSParser *parser          = ts_parser_new();
-    const TSLanguage *clang   = tree_sitter_c();
-    const TSLanguage *cpplang = tree_sitter_cpp();
+    TSParser *parser = ts_parser_new();
     if (is_cpp_file(in_file)) {
+      const TSLanguage *cpplang = tree_sitter_cpp();
       fprintf(stderr, "cpp\n");
       ts_parser_set_language(parser, cpplang);
     } else if (is_c_file(in_file)) {
+      const TSLanguage *clang = tree_sitter_c();
       fprintf(stderr, "c\n");
       ts_parser_set_language(parser, clang);
     } else {
+      const TSLanguage *clang = tree_sitter_c();
       fprintf(stderr, "unknown (c)\n");
       ts_parser_set_language(parser, clang);
     }
@@ -1733,14 +1745,15 @@ main(int argc, const char *argv[])
   ctx.output_line = pos.row + 1;
 
   if (mmap_file(in_file, &ctx.file) == 0) {
-    TSParser *parser          = ts_parser_new();
-    const TSLanguage *clang   = tree_sitter_c();
-    const TSLanguage *cpplang = tree_sitter_cpp();
+    TSParser *parser = ts_parser_new();
     if (is_cpp_file(in_file)) {
+      const TSLanguage *cpplang = tree_sitter_cpp();
       ts_parser_set_language(parser, cpplang);
     } else if (is_c_file(in_file)) {
+      const TSLanguage *clang = tree_sitter_c();
       ts_parser_set_language(parser, clang);
     } else {
+      const TSLanguage *clang = tree_sitter_c();
       ts_parser_set_language(parser, clang);
     }
     ctx.domain = get_domain(in_file);

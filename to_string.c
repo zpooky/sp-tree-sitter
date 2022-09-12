@@ -1856,12 +1856,12 @@ __format_libcpp(struct sp_ts_Context *ctx,
     sp_str_init(&buf_tmp, 0);
 
     result->format = "%ld";
-    sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
     if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
       sp_str_appends(&buf_tmp, " ? (long)", pprefix, result->variable, NULL);
       sp_str_append(&buf_tmp, "->size() : -1");
     } else {
-      sp_str_appends(&buf_tmp, "(long)", NULL);
+      sp_str_appends(&buf_tmp, "(long)", pprefix, result->variable, NULL);
       sp_str_append(&buf_tmp, ".size()");
     }
     free(result->complex_raw);
