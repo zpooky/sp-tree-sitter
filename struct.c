@@ -1869,11 +1869,9 @@ main(int argc, const char *argv[])
 // TODO generate 2 print function typedef struct name {} name_t;
 //
 // TODO when leader+m try to paste after all variable inits
-//
-// TODO enum bitset FIRST=1 SECOND=2 THRID=4, var=FIRST|SECOND
-//      if enum has explicit values and if binary they do not owerlap = assume enum bitset
 
 // TODO detect cycles
 // struct dummy_list {
 //   struct dummy_list *rec;
 // };
+// TODO c++ template arguments: vector<int>, map<int,int>

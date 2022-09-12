@@ -20,11 +20,11 @@ int
 function(int *first, struct hh *second)
 {
   float kk = 0;
-  int same_line;
+  int same_line=0;
 
   void (*fp)(int, float) = NULL;
   if (1) {
-    char hidden;
+    char hidden = 'a';
   }
   if (1) {
     const char *war = NULL;
@@ -155,7 +155,7 @@ struct axis_mcu_uart_port {
 typedef enum {
   G_PARAM_READABLE  = 1,
   G_PARAM_WRITABLE  = (1 << 1), //TODO
-  G_PARAM_READWRITE = (G_PARAM_READABLE | G_PARAM_WRITABLE),
+  G_PARAM_READWRITE = (G_PARAM_READABLE | G_PARAM_WRITABLE), // TODO can skip this one since it consist of two others
   /* G_PARAM_READWRITE_CONSTRUCT           = (G_PARAM_READABLE | G_PARAM_WRITABLE | G_PARAM_CONSTRUCT), // TODO recursive */
   /* // if G_PARAM_READWRITE: print(), elif G_PARAM_READABLE: print(), elif G_PARAM_WRITABLE: print() */
   /*  */

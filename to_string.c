@@ -1831,6 +1831,7 @@ __format_libcpp(struct sp_ts_Context *ctx,
                 struct arg_list *result,
                 const char *pprefix)
 {
+  //TODO namespace check
   (void)ctx;
   if (strcmp(result->type, "string") == 0) {
     sp_str buf_tmp;
@@ -1849,11 +1850,29 @@ __format_libcpp(struct sp_ts_Context *ctx,
     result->complex_printf = true;
 
     sp_str_free(&buf_tmp);
-  } else {
-    return false;
+    return true;
+  } else if (strcmp(result->type, "vector") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%ld";
+    sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, " ? (long)", pprefix, result->variable, NULL);
+      sp_str_append(&buf_tmp, "->size() : -1");
+    } else {
+      sp_str_appends(&buf_tmp, "(long)", NULL);
+      sp_str_append(&buf_tmp, ".size()");
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+
+    sp_str_free(&buf_tmp);
+    return true;
   }
 
-  return true;
+  return false;
 }
 
 static bool
