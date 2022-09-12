@@ -1,7 +1,7 @@
 # https://spin.atomicobject.com/2016/08/26/makefile-c-projects/
 PARSE_SOURCES = main.c
 STRUCT_SOURCES = struct.c lang/tree-sitter-cpp/src/parser.c lang/tree-sitter-cpp/src/scanner.cc
-SHARED_SOURCES = shared.c sp_util.c sp_str.c lang/tree-sitter-c/src/parser.c
+SHARED_SOURCES = shared.c to_string.c sp_util.c sp_str.c lang/tree-sitter-c/src/parser.c
 # SOURCES = $(shell find . -iname "*.c" | grep -v '.ccls-cache' | xargs)
 # SOURCES = $(wildcard *.c)
 
