@@ -165,6 +165,22 @@ get_domain(const char *file)
 }
 
 static TSNode
+sp_find_parent0(TSNode subject, const char *needle0)
+{
+
+  TSNode it     = subject;
+  TSNode result = {0};
+
+  while (!ts_node_is_null(it)) {
+    if (strcmp(ts_node_type(it), needle0) == 0) {
+      result = it;
+    }
+    it = ts_node_parent(it);
+  }
+  return result;
+}
+
+static TSNode
 sp_find_parent(TSNode subject,
                const char *needle0,
                const char *needle1,
@@ -459,6 +475,22 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static void
+print_json_empty_response(void)
+{
+  json_t *root         = json_object();
+  json_t *json_inserts = json_array();
+  json_object_set_new(root, "inserts", json_inserts);
+
+  {
+    char *r = json_dumps(root, JSON_PRESERVE_ORDER);
+    fprintf(stdout, "%s", r);
+    fflush(stdout);
+    free(r);
+  }
+  json_decref(root);
+}
+
+static void
 print_json_response(uint32_t line, const char *data)
 {
   json_t *root = json_object();
@@ -474,11 +506,10 @@ print_json_response(uint32_t line, const char *data)
   }
 
   {
-    char *json_response;
-    json_response = json_dumps(root, JSON_PRESERVE_ORDER);
-    fprintf(stdout, "%s", json_response);
+    char *r = json_dumps(root, JSON_PRESERVE_ORDER);
+    fprintf(stdout, "%s", r);
     fflush(stdout);
-    free(json_response);
+    free(r);
   }
 
   json_decref(root);
@@ -1203,13 +1234,6 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
     do {
       if (strcmp(ts_node_type(sibling), "declaration") == 0) {
         struct arg_list *arg = NULL;
-#if 0
-        uint32_t s           = ts_node_start_byte(sibling);
-        uint32_t e           = ts_node_end_byte(sibling);
-        uint32_t len         = e - s;
-        fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-                ts_node_type(sibling));
-#endif
         if ((arg = __parameter_to_arg(ctx, sibling))) {
           field_it = field_it->next = arg;
           while (field_it->next) {
@@ -1228,9 +1252,6 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
   /* fprintf(stderr, "============================\n"); */
   /* debug_subtypes_rec(ctx, it, 0); */
   sp_do_print_function(ctx, field_dummy.next);
-
-  /*     TODO int i, j; */
-  /* TODO cursor on empty line */
 
   return res;
 }
@@ -1651,8 +1672,8 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
   }
 
   {
-    uint32_t len =
-      0; // since by adding a line above we alter what line we should insert next
+    // since by adding a line above we alter what line we should insert next
+    uint32_t len = 0;
     json_t *root = json_object();
     {
       json_t *json_inserts = json_array();
@@ -1778,33 +1799,17 @@ main(int argc, const char *argv[])
       root = ts_tree_root_node(ctx.tree);
       if (!ts_node_is_null(root)) {
         TSNode highligted;
-#if 0
-        {
-          uint32_t i;
-          char *p = ts_node_string(root);
-          fprintf(stdout, "%s\n", p);
-          free(p);
-          TSNode tmp = find_direct_chld_by_type(root, "declaration");
-          if (!ts_node_is_null(tmp)) {
-            for (i = 0; i < ts_node_child_count(tmp); ++i) {
-              uint32_t s   = ts_node_start_byte(ts_node_child(tmp, i));
-              uint32_t e   = ts_node_end_byte(ts_node_child(tmp, i));
-              uint32_t len = e - s;
-              fprintf(stderr, ".%u\n", i);
-              /* fprintf(stderr, "s: %u\n", s); */
-              /* fprintf(stderr, "e: %u\n", e); */
-              /* fprintf(stderr, "len: %u\n", len); */
-              fprintf(stderr, "%.*s: %s\n", (int)len, &ctx.file.content[s],
-                      ts_node_type(ts_node_child(tmp, i)));
-            }
-          }
-        }
-#endif
-
         highligted = ts_node_descendant_for_point_range(root, pos, pos);
         if (!ts_node_is_null(highligted)) {
           if (strcmp(in_type, "locals") == 0) {
+            TSNode fun     = sp_find_parent0(highligted, "function_definition");
             TSPoint hpoint = ts_node_start_point(highligted);
+            if (ts_node_is_null(fun)) {
+              // we can only print locals inside a function
+              print_json_empty_response();
+              return EXIT_SUCCESS;
+            }
+
             if (hpoint.row != pos.row) {
               TSNode closest           = {0};
               struct list_TSNode dummy = {0};
@@ -1864,6 +1869,8 @@ main(int argc, const char *argv[])
                   res = sp_print_branches(&ctx, found);
                 }
               }
+            } else {
+              fprintf(stderr, "not inside a scope\n");
             }
           }
         } else {
