@@ -31,6 +31,13 @@ struct sp_ts_Context {
   uint32_t output_line;
 };
 
+typedef enum {
+  AS_PACKAGE_PROTECTED,
+  AS_PUBLIC,
+  AS_PRIVATE,
+  AS_PROTECTED,
+} AccessSpecifier_t;
+
 struct arg_list;
 struct arg_list {
   char *format;

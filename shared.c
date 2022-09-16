@@ -19,10 +19,6 @@ mmap_file(const char *file, struct sp_ts_file *result)
   struct stat st = {0};
   memset(&st, 0, sizeof(st));
 
-  /* TODO int* s -> "%d", in->s ? *in->s : 1337;
-   * TODO struct { int dd; } anon0; -> "%d", in->anon0.dd
-   * TODO union { char *buf; char sbuf[16]; }; ??
-   */
 #if 0
   result->content = ""
                     "typedef enum enum_type {ENUM_X, ENUM_Y } enum_t;\n"

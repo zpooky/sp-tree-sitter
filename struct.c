@@ -24,7 +24,10 @@ extern const TSLanguage *
 tree_sitter_cpp(void);
 
 static struct arg_list *
-__field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix);
+__field_to_arg(struct sp_ts_Context *ctx,
+               TSNode subject,
+               const char *pprefix,
+               AccessSpecifier_t specifier);
 
 static char *
 node_value(struct sp_ts_Context *ctx, TSNode node)
@@ -824,7 +827,7 @@ __field_type(struct sp_ts_Context *ctx,
                   if (strcmp(ts_node_type(field), "field_declaration") == 0) {
                     struct arg_list *arg = NULL;
 
-                    if ((arg = __field_to_arg(ctx, field, "in->"))) {
+                    if ((arg = __field_to_arg(ctx, field, "in->", AS_PUBLIC))) {
                       field_it->next = arg;
                       while (field_it->next) {
                         field_it = field_it->next;
@@ -1065,7 +1068,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
   sp_str_init(&line_buf, 0);
 
   if (ctx->domain == DEFAULT_DOMAIN) {
-    sp_str_append(&buf, "  printf(");
+    sp_str_append(&buf, "  fprintf(stderr, ");
   } else if (ctx->domain == LOG_ERR_DOMAIN) {
     sp_str_append(&buf, "  log_err(");
   } else if (ctx->domain == SYSLOG_DOMAIN) {
@@ -1131,8 +1134,8 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
 static int
 sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
 {
-  int res = EXIT_SUCCESS;
-  TSNode tmp;
+  int res                     = EXIT_SUCCESS;
+  TSNode tmp                  = {0};
   struct arg_list field_dummy = {0};
   struct arg_list *field_it   = &field_dummy;
 
@@ -1155,7 +1158,7 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
   uint32_t a;
   for (a = 0; a < ts_node_child_count(param_decl); ++a) {
     TSNode child = ts_node_child(param_decl, a);
-    printf("- %s\n", ts_node_string(child));
+    fprintf(stderr,"- %s\n", ts_node_string(child));
   }
 #endif
           if ((arg = __parameter_to_arg(ctx, param_decl))) {
@@ -1167,11 +1170,11 @@ sp_print_function_args(struct sp_ts_Context *ctx, TSNode subject)
         }
       } //for
     } else {
-      printf("null\n");
+      fprintf(stderr, "null\n");
     }
 
   } else {
-    /* printf("null\n"); */
+    /* fprintf(stderr,"null\n"); */
   }
 
   sp_do_print_function(ctx, field_dummy.next);
@@ -1257,7 +1260,10 @@ sp_print_locals(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static struct arg_list *
-__field_to_arg(struct sp_ts_Context *ctx, TSNode subject, const char *pprefix)
+__field_to_arg(struct sp_ts_Context *ctx,
+               TSNode subject,
+               const char *pprefix,
+               AccessSpecifier_t specifier)
 {
   struct arg_list *result = NULL;
 
@@ -1383,7 +1389,7 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
       if (strcmp(ts_node_type(field), "field_declaration") == 0) {
         struct arg_list *arg = NULL;
 
-        if ((arg = __field_to_arg(ctx, field, pprefix))) {
+        if ((arg = __field_to_arg(ctx, field, pprefix, AS_PUBLIC))) {
           field_it->next = arg;
           while (field_it->next) {
             field_it = field_it->next;
@@ -1399,9 +1405,121 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
 }
 
 static int
+sp_do_print_class(struct sp_ts_Context *ctx,
+                  const char *type_name,
+                  struct arg_list *const fields,
+                  const char *pprefix,
+                  uint32_t row)
+{
+  struct arg_list *field_it;
+  size_t complete    = 0;
+  const char *indent = "  ";
+  sp_str buf;
+  sp_str_init(&buf, 0);
+
+  (void)ctx;
+
+  sp_str_appends(&buf, indent, "public:\n", NULL);
+  sp_str_appends(&buf, indent, "const char* sp_debug() const {\n", NULL);
+  sp_str_appends(&buf, indent, "  static char buf[1024] = {'\\0'};\n", NULL);
+  field_it = fields;
+  sp_str_appends(&buf, indent, "  snprintf(buf, sizeof(buf), \"", type_name,
+                 "{", NULL);
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
+                     NULL);
+      ++complete;
+    } else {
+      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
+              field_it->variable ? field_it->variable : "NULL");
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, "}\"");
+
+  field_it = fields;
+  while (field_it) {
+    if (field_it->complete) {
+      sp_str_append(&buf, ", ");
+      if (field_it->complex_printf) {
+        assert(field_it->complex_raw);
+        sp_str_append(&buf, field_it->complex_raw);
+      } else {
+        sp_str_appends(&buf, pprefix, "->", field_it->variable, NULL);
+      }
+    }
+    field_it = field_it->next;
+  } //while
+  sp_str_append(&buf, ");\n");
+  sp_str_appends(&buf, indent, "  return buf;\n", NULL);
+  sp_str_appends(&buf, indent, "}\n", NULL);
+
+  print_json_response(row, sp_str_c_str(&buf));
+
+  sp_str_free(&buf);
+  return EXIT_SUCCESS;
+}
+
+static int
 sp_print_class(struct sp_ts_Context *ctx, TSNode subject)
 {
-  return EXIT_SUCCESS;
+  int res = EXIT_FAILURE;
+  uint32_t i;
+  TSNode fdl;
+  TSNode tmp;
+  struct arg_list field_dummy = {0};
+  struct arg_list *field_it   = &field_dummy;
+  char *type_name             = NULL;
+  AccessSpecifier_t specifier = AS_PACKAGE_PROTECTED;
+  uint32_t row                = 0;
+
+  const char *pprefix  = "this->";
+  const char *pprefix2 = "this";
+
+  tmp = find_direct_chld_by_type(subject, "type_identifier");
+  if (!ts_node_is_null(tmp)) {
+    /* class type_name { ... }; */
+    type_name = sp_struct_value(ctx, tmp);
+  }
+
+  fdl = find_direct_chld_by_type(subject, "field_declaration_list");
+  if (!ts_node_is_null(fdl)) {
+    debug_subtypes_rec(ctx, fdl, 0);
+    for (i = 0; i < ts_node_child_count(fdl); ++i) {
+      TSNode child = ts_node_child(fdl, i);
+      if (strcmp(ts_node_type(child), "field_declaration") == 0) {
+        struct arg_list *arg = NULL;
+
+        if ((arg = __field_to_arg(ctx, child, pprefix, specifier))) {
+          field_it->next = arg;
+          while (field_it->next) {
+            field_it = field_it->next;
+          }
+        }
+      } else if (strcmp(ts_node_type(child), "access_specifier") == 0) {
+        if (!ts_node_is_null(find_direct_chld_by_type(subject, "private"))) {
+          specifier = AS_PRIVATE;
+          break;
+        } else if (!ts_node_is_null(
+                     find_direct_chld_by_type(subject, "public"))) {
+          specifier = AS_PUBLIC;
+          break;
+        } else if (!ts_node_is_null(
+                     find_direct_chld_by_type(subject, "protected"))) {
+          specifier = AS_PROTECTED;
+          break;
+        }
+      } else if (strcmp(ts_node_type(child), "}") == 0) {
+        TSPoint p = ts_node_end_point(subject);
+        row       = p.row;
+      }
+    }
+
+    sp_do_print_class(ctx, type_name, field_dummy.next, pprefix2, row);
+    res = EXIT_SUCCESS;
+  }
+  return res;
 }
 
 static uint32_t
@@ -1688,7 +1806,7 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
 
           bool trailing_newline = true;
           if (ctx->domain == DEFAULT_DOMAIN) {
-            sp_str_append(&buf, "printf(");
+            sp_str_append(&buf, "  fprintf(stderr, ");
           } else if (ctx->domain == LOG_ERR_DOMAIN) {
             sp_str_append(&buf, "  log_err(");
           } else if (ctx->domain == SYSLOG_DOMAIN) {
@@ -1845,16 +1963,12 @@ main(int argc, const char *argv[])
                   ctx.output_line = sp_find_last_line(found);
                   res             = sp_print_struct(&ctx, found);
                 }
-              }
-#if 1
-              else if (strcmp(ts_node_type(found), class_spec) == 0) {
+              } else if (strcmp(ts_node_type(found), class_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
                   ctx.output_line = sp_find_last_line(found);
                   res             = sp_print_class(&ctx, found);
                 }
-              }
-#endif
-              else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+              } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
 
                 if (strcmp(in_type, "crunch") == 0) {
                   ctx.output_line = sp_find_last_line(found);
