@@ -107,15 +107,6 @@ enum AVColorPrimaries {
     0x10000, ///< A dummy id pointing at the start of audio codecs
   AV_CODEC_ID_PCM_S16LE = 0x10000, //TODO enum with same value
 };
-static inline const char* sp_debug_AVColorPrimaries(const enum AVColorPrimaries *in) {
-  static char buf[1024] = {'\0'};
-  if (!in) return "NULL";
-  if (*in & AVCOL_PRI_SMPTE428) strcat(buf, "|AVCOL_PRI_SMPTE428");
-  if (*in & AVCOL_PRI_SMPTEST428_1) strcat(buf, "|AVCOL_PRI_SMPTEST428_1");
-  if (*in & AV_CODEC_ID_FIRST_AUDIO) strcat(buf, "|AV_CODEC_ID_FIRST_AUDIO");
-  if (*in & AV_CODEC_ID_PCM_S16LE) strcat(buf, "|AV_CODEC_ID_PCM_S16LE");
-  return buf;
-}
 
 gboolean
 led_2_camblock_i2c_setup(LedBase *self, GError **error)
