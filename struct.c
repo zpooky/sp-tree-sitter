@@ -836,28 +836,6 @@ __field_type(struct sp_ts_Context *ctx,
                   }
                 } //for
                 result->rec = field_dummy.next;
-
-#if 0
-                {
-                  unsigned i;
-                  for (i = 0; i < ts_node_child_count(field_id); ++i) {
-                    TSNode child = ts_node_child(field_id, i);
-                    uint32_t s   = ts_node_start_byte(child);
-                    uint32_t e   = ts_node_end_byte(child);
-                    uint32_t len = e - s;
-                    fprintf(stderr, ".%u\n", i);
-                    fprintf(stderr, "children: %u\n",
-                            ts_node_child_count(child));
-                    fprintf(stderr, "%.*s: %s\n", (int)len,
-                            &ctx->file.content[s], ts_node_type(child));
-                  }
-                }
-                uint32_t s   = ts_node_start_byte(field_decl_l);
-                uint32_t e   = ts_node_end_byte(field_decl_l);
-                uint32_t len = e - s;
-                fprintf(stderr, "%.*s: %s\n", (int)len, &ctx->file.content[s],
-                        ts_node_type(field_decl_l));
-#endif
               } else {
                 fprintf(stderr, "5.2.2\n");
               }
@@ -885,7 +863,21 @@ __field_type(struct sp_ts_Context *ctx,
                   }
                 }
               } else {
-                fprintf(stderr, "HERE\n");
+                tmp = find_direct_chld_by_type(subject, "macro_type_specifier");
+                if (!ts_node_is_null(tmp)) {
+                  /* g_autoptr(Type) var; */
+                  tmp = find_direct_chld_by_type(tmp, "type_descriptor");
+                  if (!ts_node_is_null(tmp)) {
+                    tmp = find_direct_chld_by_type(tmp, "type_identifier");
+                    if (!ts_node_is_null(tmp)) {
+                      type = sp_struct_value(ctx, tmp);
+                    }
+                  }
+                  /* debug_subtypes_rec(ctx, tmp, 0); */
+                } else {
+                  fprintf(stderr, "HERE\n");
+                  debug_subtypes_rec(ctx, subject, 0);
+                }
               }
             }
           }
