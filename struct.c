@@ -679,20 +679,19 @@ scoped_type_identifier_Type(struct sp_ts_Context *ctx, TSNode subject)
   return NULL;
 }
 
-static char *
+static void
 __field_type(struct sp_ts_Context *ctx,
              TSNode subject,
              struct arg_list *result,
              const char *pprefix)
 {
   TSNode tmp;
-  char *type = NULL;
   /* fprintf(stderr, "%s:=========================\n", __func__); */
 
   tmp = find_direct_chld_by_type(subject, "primitive_type");
   if (!ts_node_is_null(tmp)) {
     /* $primitive_type $field_identifier; */
-    type = sp_struct_value(ctx, tmp);
+    result->type = sp_struct_value(ctx, tmp);
     /* fprintf(stderr, "%s:1 [%s]\n", __func__, type); */
   } else {
     tmp = find_direct_chld_by_type(subject, "sized_type_specifier");
@@ -714,19 +713,31 @@ __field_type(struct sp_ts_Context *ctx,
       } //for
 
       /* $sized_type_specifier $sized_type_specifier ... $field_identifier; */
-      type = strdup(sp_str_c_str(&tmp_str));
+      result->type = strdup(sp_str_c_str(&tmp_str));
       /* fprintf(stderr, "%s:2 [%s]\n", __func__, type); */
       sp_str_free(&tmp_str);
     } else {
       tmp = find_direct_chld_by_type(subject, "type_identifier");
       if (!ts_node_is_null(tmp)) {
-        /* $type_identifier $field_identifier;
+        TSNode err_t = find_direct_chld_by_type(subject, "ERROR");
+        if (!ts_node_is_null(err_t)) {
+          /* fprintf(stderr, "%s:\n", __func__); */
+          /* debug_subtypes_rec(ctx, subject, 0); */
+          tmp = find_direct_chld_by_type(err_t, "identifier");
+          if (!ts_node_is_null(tmp)) {
+            /* g_autofree gchar *var; */
+            result->type = sp_struct_value(ctx, tmp);
+            /* fprintf(stderr, "%s:type[%s]\n", __func__, type); */
+          }
+        } else {
+          /* $type_identifier $field_identifier;
          * Example:
          *  type_t type0;
          *  gint int0;
          */
-        type = sp_struct_value(ctx, tmp);
-        /* fprintf(stderr, "%s:3 [%s]\n", __func__, type); */
+          result->type = sp_struct_value(ctx, tmp);
+          /* fprintf(stderr, "%s:3 [%s]\n", __func__, type); */
+        }
       } else {
         tmp = find_direct_chld_by_type(subject, "enum_specifier");
         if (!ts_node_is_null(tmp)) {
@@ -734,7 +745,7 @@ __field_type(struct sp_ts_Context *ctx,
 
           type_id = find_direct_chld_by_type(tmp, "type_identifier");
           if (!ts_node_is_null(type_id)) {
-            type = sp_struct_value(ctx, type_id);
+            result->type = sp_struct_value(ctx, type_id);
             /* fprintf(stderr, "%s:4 [%s]\n", __func__, type); */
           } else {
             TSNode enum_list;
@@ -810,7 +821,7 @@ __field_type(struct sp_ts_Context *ctx,
             type_id = find_direct_chld_by_type(struct_spec, "type_identifier");
             if (!ts_node_is_null(type_id)) {
               fprintf(stderr, "5.1\n");
-              type = sp_struct_value(ctx, type_id);
+              result->type = sp_struct_value(ctx, type_id);
             } else {
               TSNode field_decl_l;
               fprintf(stderr, "5.2\n");
@@ -844,7 +855,7 @@ __field_type(struct sp_ts_Context *ctx,
             TSNode ns_id;
             ns_id = find_direct_chld_by_type(subject, "scoped_type_identifier");
             if (!ts_node_is_null(ns_id)) {
-              type = scoped_type_identifier_Type(ctx, ns_id);
+              result->type = scoped_type_identifier_Type(ctx, ns_id);
             } else {
               TSNode temp_t;
               temp_t = find_direct_chld_by_type(subject, "template_type");
@@ -853,27 +864,32 @@ __field_type(struct sp_ts_Context *ctx,
                 TSNode type_id;
                 type_id = find_direct_chld_by_type(temp_t, "type_identifier");
                 if (!ts_node_is_null(type_id)) {
-                  type = sp_struct_value(ctx, type_id);
+                  result->type = sp_struct_value(ctx, type_id);
                 } else {
                   TSNode ns_id2;
                   ns_id2 =
                     find_direct_chld_by_type(temp_t, "scoped_type_identifier");
                   if (!ts_node_is_null(ns_id2)) {
-                    type = scoped_type_identifier_Type(ctx, ns_id2);
+                    result->type = scoped_type_identifier_Type(ctx, ns_id2);
                   }
                 }
               } else {
                 tmp = find_direct_chld_by_type(subject, "macro_type_specifier");
                 if (!ts_node_is_null(tmp)) {
-                  /* g_autoptr(Type) var; */
+                  TSNode macro_t = find_direct_chld_by_type(tmp, "identifier");
+                  if (!ts_node_is_null(macro_t)) {
+                    result->macro_type = sp_struct_value(ctx, tmp);
+                  }
+
                   tmp = find_direct_chld_by_type(tmp, "type_descriptor");
                   if (!ts_node_is_null(tmp)) {
                     tmp = find_direct_chld_by_type(tmp, "type_identifier");
                     if (!ts_node_is_null(tmp)) {
-                      type = sp_struct_value(ctx, tmp);
+                      /* g_autoptr(Type) var; */
+                      result->type = sp_struct_value(ctx, tmp);
                     }
                   }
-                  /* debug_subtypes_rec(ctx, tmp, 0); */
+                  debug_subtypes_rec(ctx, tmp, 0);
                 } else {
                   fprintf(stderr, "HERE\n");
                   debug_subtypes_rec(ctx, subject, 0);
@@ -885,7 +901,6 @@ __field_type(struct sp_ts_Context *ctx,
       }
     }
   }
-  return type;
 }
 
 static struct arg_list *
@@ -925,8 +940,8 @@ xx(struct sp_ts_Context *ctx,
    TSNode subject,
    const char *id_type)
 {
-  fprintf(stderr, "  %s:{\n", __func__);
-  debug_subtypes_rec(ctx, subject, 1);
+  /* fprintf(stderr, "  %s:{\n", __func__); */
+  /* debug_subtypes_rec(ctx, subject, 1); */
   TSNode ptr_decl = find_direct_chld_by_type(subject, "pointer_declarator");
   if (!ts_node_is_null(ptr_decl)) {
     TSNode id_decl = find_rec_chld_by_type(subject, id_type);
@@ -1031,7 +1046,7 @@ __parameter_to_arg(struct sp_ts_Context *ctx, TSNode subject)
     struct arg_list *it = result;
     while (it) {
       /* fprintf(stderr, "|%s\n", it->variable); */
-      it->type = __field_type(ctx, subject, it, "");
+      __field_type(ctx, subject, it, "");
       /* fprintf(stderr, "|%s: %s\n", it->type, it->variable); */
       __format(ctx, it, "");
       if (it->format && it->variable) {
@@ -1083,8 +1098,9 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
                      NULL);
       ++complete;
     } else {
-      fprintf(stderr, "%s: Incomplete: %s\n", __func__,
-              field_it->variable ? field_it->variable : "NULL");
+      fprintf(stderr, "%s: Incomplete: var:%s: type:%s\n", __func__,
+              field_it->variable ? field_it->variable : "NULL",
+              field_it->type ? field_it->type : "NULL");
     }
     field_it = field_it->next;
     if ((line_length + sp_str_length(&line_buf)) > MAX_LINE) {
@@ -1266,7 +1282,7 @@ __field_to_arg(struct sp_ts_Context *ctx,
   if ((result = __field_name(ctx, subject, "field_identifier"))) {
     struct arg_list *it = result;
     /* fprintf(stderr,"%s\n", result->variable); */
-    result->type = __field_type(ctx, subject, result, pprefix);
+    __field_type(ctx, subject, result, pprefix);
     /* fprintf(stderr, "type[%s]\n", type); */
 
     while (it) {

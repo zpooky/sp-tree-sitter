@@ -1943,6 +1943,12 @@ __format(struct sp_ts_Context *ctx,
       return;
     }
   }
+  if (result->macro_type) {
+    if (strcmp(result->macro_type, "g_autoptr")) {
+      /* macro_type(type) var; */
+      result->pointer++;
+    }
+  }
   if (result->function_pointer) {
     if (ctx->domain == LINUX_KERNEL_DOMAIN && result->pointer == 1) {
       result->format = "%pF";

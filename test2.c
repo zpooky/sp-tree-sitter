@@ -70,7 +70,7 @@ com_axis_Event_Consumer_event_async(sd_bus_message_handler_t callback, //TODO
   g_autoptr(GFile) cfg_file  = NULL; //TODO
   GDateTime asd; //TODO
   GOptionContext *ctx; //TODO
-  mode_t mask = 022;
+  /* mode_t mask = 022; */
 
   /* TODO "build-in" enum types like GType */
 }

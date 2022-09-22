@@ -44,6 +44,9 @@ struct arg_list {
   char *variable;
   bool complete;
   char *complex_raw;
+  /* macro_type(type) var; */
+  char *macro_type;
+  /* type var; */
   char *type;
   bool complex_printf;
   uint32_t pointer;
