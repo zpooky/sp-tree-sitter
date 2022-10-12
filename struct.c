@@ -30,13 +30,13 @@ __field_to_arg(struct sp_ts_Context *ctx,
                AccessSpecifier_t specifier);
 
 static char *
-node_value(struct sp_ts_Context *ctx, TSNode node)
+sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
 {
-  uint32_t s   = ts_node_start_byte(node);
-  uint32_t e   = ts_node_end_byte(node);
-  uint32_t len = e - s;
+  uint32_t s   = ts_node_start_byte(subject);
+  uint32_t e   = ts_node_end_byte(subject);
   char *it     = &ctx->file.content[s];
-  //trim
+  uint32_t len = e - s;
+  assert(e >= s);
   while (len) {
     if (*it == ' ' || *it == '\n' || *it == '\t') {
       ++it;
@@ -53,20 +53,11 @@ node_value(struct sp_ts_Context *ctx, TSNode node)
       break;
     }
   }
-  return strndup(it, len);
-}
 
-static char *
-sp_struct_value(struct sp_ts_Context *ctx, TSNode subject)
-{
-  uint32_t s   = ts_node_start_byte(subject);
-  uint32_t e   = ts_node_end_byte(subject);
-  uint32_t len = e - s;
-  assert(e >= s);
   if (len == 0) {
     return NULL;
   }
-  return strndup(&ctx->file.content[s], len);
+  return strndup(it, len);
 }
 
 static void
@@ -150,18 +141,19 @@ is_cpp_file(const char *file)
 static enum sp_ts_SourceDomain
 get_domain(const char *file)
 {
-  if (strcasestr(file, "/linux-axis") != NULL)
+  if (strcasestr(file, "-linux-axis") != NULL)
     return LINUX_KERNEL_DOMAIN;
-  if (strcasestr(file, "/modartpec") != NULL)
+  if (strcasestr(file, "-modartpec") != NULL)
     return LINUX_KERNEL_DOMAIN;
-  if (strcasestr(file, "/workspace/sources/ioboxd") != NULL)
+  if (strcasestr(file, "-workspace-sources-ioboxd") != NULL ||
+      strcasestr(file, "-workspace-sources-focusd") != NULL)
     return LOG_ERR_DOMAIN;
-  if (strcasestr(file, "/eventbridge-plugins-propertychanged") != NULL)
+  if (strcasestr(file, "-eventbridge-plugins-propertychanged") != NULL)
     return F_ERROR_DOMAIN;
-  if (strcasestr(file, "/libevent2") != NULL ||
-      strcasestr(file, "/libconfiguration-event") != NULL)
+  if (strcasestr(file, "-libevent2") != NULL ||
+      strcasestr(file, "-libconfiguration-event") != NULL)
     return AX_ERROR_DOMAIN;
-  if (strcasestr(file, "/dists/") != NULL)
+  if (strcasestr(file, "-dists-") != NULL)
     return SYSLOG_DOMAIN;
 
   return DEFAULT_DOMAIN;
@@ -454,7 +446,7 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
                 return false;
               } else {
                 size_t a;
-                char *ref  = node_value(ctx, node1);
+                char *ref  = sp_struct_value(ctx, node1);
                 bool found = false;
                 for (a = 0; a < n_enum_cache; ++a) {
                   if (strcmp(enum_cache[a], ref) == 0) {
