@@ -1293,9 +1293,64 @@ __field_to_arg(struct sp_ts_Context *ctx,
 }
 
 static int
+sp_do_print_typedef(const char *type_name, const char *t_type_name, sp_str *buf)
+{
+  sp_str_appends(buf, "static inline const char* sp_debug_", t_type_name, "(",
+                 NULL);
+  sp_str_appends(buf, "const ", t_type_name, " *in", NULL);
+  sp_str_append(buf, ") {\n");
+  sp_str_appends(buf, "  return sp_debug_", type_name, "(in);\n", NULL);
+  sp_str_append(buf, "}\n");
+  return EXIT_SUCCESS;
+}
+
+static int
+sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
+{
+  int res           = EXIT_FAILURE;
+  sp_str buf        = {0};
+  char *type_name   = NULL;
+  char *t_type_name = NULL;
+  TSNode struct_spec;
+  TSNode tmp;
+  /* debug_subtypes_rec(ctx, type_def, 0); */
+
+  struct_spec = find_direct_chld_by_type(type_def, "struct_specifier");
+  if (ts_node_is_null(tmp)) {
+    goto Lerr;
+  }
+
+  tmp = find_direct_chld_by_type(struct_spec, "type_identifier");
+  if (!ts_node_is_null(tmp)) {
+    type_name = sp_struct_value(ctx, tmp);
+  } else {
+    goto Lerr;
+  }
+
+  tmp = find_direct_chld_by_type(type_def, "type_identifier");
+  if (!ts_node_is_null(tmp)) {
+    t_type_name = sp_struct_value(ctx, tmp);
+  } else {
+    goto Lerr;
+  }
+
+  sp_str_init(&buf, 0);
+
+  sp_do_print_typedef(type_name, t_type_name, &buf);
+  print_json_response(ctx->output_line, sp_str_c_str(&buf));
+
+  res = EXIT_SUCCESS;
+Lerr:
+  free(t_type_name);
+  free(type_name);
+  sp_str_free(&buf);
+  return res;
+}
+
+static int
 sp_do_print_struct(struct sp_ts_Context *ctx,
-                   bool type_name_t,
                    const char *type_name,
+                   const char *t_type_name,
                    struct arg_list *const fields,
                    const char *pprefix)
 {
@@ -1303,13 +1358,19 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
   size_t complete = 0;
   sp_str buf;
   sp_str_init(&buf, 0);
+  /* fprintf(stderr, */
+  /*         "%s:type_name[%s]t_type_name[%s]" // */
+  /*         "pprefix[%s]\n", */
+  /*         __func__, type_name, t_type_name, pprefix); */
 
   (void)ctx;
 
-  sp_str_appends(&buf, "static inline const char* sp_debug_", type_name, "(",
-                 NULL);
-  sp_str_appends(&buf, "const ", type_name_t ? "" : "struct ", type_name, " *",
-                 pprefix, NULL);
+  const char *def_type_name = type_name ? type_name : t_type_name;
+
+  sp_str_appends(&buf, "static inline const char* sp_debug_", def_type_name,
+                 "(", NULL);
+  sp_str_appends(&buf, "const ", type_name ? "struct " : "", def_type_name,
+                 " *", pprefix, NULL);
   sp_str_append(&buf, ") {\n");
   sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
   sp_str_appends(&buf, "  if (!", pprefix, ") return \"", type_name,
@@ -1347,6 +1408,10 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
   sp_str_append(&buf, "  return buf;\n");
   sp_str_append(&buf, "}\n");
 
+  if (type_name && t_type_name) {
+    sp_do_print_typedef(type_name, t_type_name, &buf);
+  }
+
   print_json_response(ctx->output_line, sp_str_c_str(&buf));
 
   sp_str_free(&buf);
@@ -1354,10 +1419,12 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
 }
 
 static int
-sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
+sp_print_struct(struct sp_ts_Context *ctx,
+                TSNode subject,
+                const char *t_type_name)
 {
+  int res                     = EXIT_FAILURE;
   char *type_name             = NULL;
-  bool type_name_t            = false;
   struct arg_list field_dummy = {0};
   struct arg_list *field_it   = &field_dummy;
   uint32_t i;
@@ -1369,18 +1436,10 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
   if (!ts_node_is_null(tmp)) {
     /* struct type_name { ... }; */
     type_name = sp_struct_value(ctx, tmp);
-  } else {
-    TSNode parent = ts_node_parent(subject);
-    if (!ts_node_is_null(parent)) {
-      if (strcmp(ts_node_type(parent), "type_definition") == 0) {
-        tmp = find_direct_chld_by_type(parent, "type_identifier");
-        if (!ts_node_is_null(tmp)) {
-          /* typedef struct * { ... } type_name; */
-          type_name_t = true;
-          type_name   = sp_struct_value(ctx, tmp);
-        }
-      }
-    }
+  }
+
+  if (!type_name && !t_type_name) {
+    goto Lexit;
   }
 
   tmp = find_direct_chld_by_type(subject, "field_declaration_list");
@@ -1401,56 +1460,10 @@ sp_print_struct(struct sp_ts_Context *ctx, TSNode subject)
     } //for
   }
 
-  sp_do_print_struct(ctx, type_name_t, type_name, field_dummy.next, pprefix2);
-  free(type_name);
-  return EXIT_SUCCESS;
-}
-
-static int
-sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
-{
-  int res           = EXIT_FAILURE;
-  sp_str buf        = {0};
-  char *type_name   = NULL;
-  char *t_type_name = NULL;
-  TSNode struct_spec;
-  TSNode tmp;
-  /* debug_subtypes_rec(ctx, type_def, 0); */
-
-  struct_spec = find_direct_chld_by_type(type_def, "struct_specifier");
-  if (ts_node_is_null(tmp)) {
-    goto Lerr;
-  }
-
-  tmp = find_direct_chld_by_type(struct_spec, "type_identifier");
-  if (!ts_node_is_null(tmp)) {
-    type_name = sp_struct_value(ctx, tmp);
-  } else {
-    goto Lerr;
-  }
-
-  tmp = find_direct_chld_by_type(type_def, "type_identifier");
-  if (!ts_node_is_null(tmp)) {
-    t_type_name = sp_struct_value(ctx, tmp);
-  } else {
-    goto Lerr;
-  }
-
-  sp_str_init(&buf, 0);
-
-  sp_str_appends(&buf, "static inline const char* sp_debug_", t_type_name, "(",
-                 NULL);
-  sp_str_appends(&buf, "const ", t_type_name, " *in", NULL);
-  sp_str_append(&buf, ") {\n");
-  sp_str_appends(&buf, "  return sp_debug_", type_name, "(in);\n", NULL);
-  sp_str_append(&buf, "}\n");
-  print_json_response(ctx->output_line, sp_str_c_str(&buf));
-
+  sp_do_print_struct(ctx, type_name, t_type_name, field_dummy.next, pprefix2);
   res = EXIT_SUCCESS;
-Lerr:
-  free(t_type_name);
+Lexit:
   free(type_name);
-  sp_str_free(&buf);
   return res;
 }
 
@@ -2023,22 +2036,42 @@ main(int argc, const char *argv[])
                     find_direct_chld_by_type(found, "field_declaration_list");
                   if (!ts_node_is_null(tmp)) {
                     ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_struct(&ctx, found);
+                    res             = sp_print_struct(&ctx, found, NULL);
                   } else {
                     ctx.output_line = sp_find_last_line(found);
                     TSNode type_def = ts_node_parent(found);
                     if (strcmp(ts_node_type(type_def), "type_definition") ==
                         0) {
-                      res = sp_print_typedef(&ctx, found);
-                      debug_subtypes_rec(&ctx, found, 0);
+                      res = sp_print_typedef(&ctx, type_def);
+                      /* debug_subtypes_rec(&ctx, found, 0); */
                     }
                   }
                 }
               } else if (strcmp(ts_node_type(found), typedef_spec) == 0) {
-                /* fprintf(stderr, "%s:\n", __func__); */
-                /* debug_subtypes_rec(&ctx, found, 0); */
-                ctx.output_line = sp_find_last_line(found);
-                res             = sp_print_typedef(&ctx, found);
+                TSNode tmp;
+                tmp = find_rec_chld_by_type(found, "field_declaration_list");
+                if (!ts_node_is_null(tmp)) {
+                  char *t_type_name = NULL;
+                  tmp = find_direct_chld_by_type(found, "type_identifier");
+                  if (!ts_node_is_null(tmp)) {
+                    /* typedef struct ... { ... } t_type_name; */
+                    t_type_name = sp_struct_value(&ctx, tmp);
+                  }
+                  /* fprintf(stderr, "%s:t_type_name[%s]\n", __func__, */
+                  /*         t_type_name); */
+                  /* debug_subtypes_rec(&ctx, found, 0); */
+
+                  tmp = find_direct_chld_by_type(found, struct_spec);
+                  if (!ts_node_is_null(tmp)) {
+                    ctx.output_line = sp_find_last_line(found);
+                    res             = sp_print_struct(&ctx, tmp, t_type_name);
+                  }
+
+                  free(t_type_name);
+                } else {
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_typedef(&ctx, found);
+                }
               } else if (strcmp(ts_node_type(found), class_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
                   ctx.output_line = sp_find_last_line(found);
@@ -2084,7 +2117,6 @@ main(int argc, const char *argv[])
 // example: NOTE: assumes xxx and l_xxx is related
 
 // TODO generate 2 print function typedef struct name {} name_t;
-//
 // TODO when leader+m try to paste after all variable inits
 
 // TODO detect cycles
