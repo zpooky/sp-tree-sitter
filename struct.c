@@ -513,13 +513,26 @@ print_json_response(uint32_t line, const char *data)
 }
 
 static int
-sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
+sp_do_print_typedef(const char *type_name, const char *t_type_name, sp_str *buf)
+{
+  sp_str_appends(buf, "static inline const char* sp_debug_", t_type_name, "(",
+                 NULL);
+  sp_str_appends(buf, "const ", t_type_name, " *in", NULL);
+  sp_str_append(buf, ") {\n");
+  sp_str_appends(buf, "  return sp_debug_", type_name, "(in);\n", NULL);
+  sp_str_append(buf, "}\n");
+  return EXIT_SUCCESS;
+}
+
+static int
+sp_print_enum(struct sp_ts_Context *ctx,
+              TSNode subject,
+              const char *t_type_name)
 {
   int res = EXIT_SUCCESS;
   TSNode tmp;
   sp_str buf;
   char *type_name              = NULL;
-  bool type_name_t             = false;
   struct sp_str_list dummy     = {0};
   struct sp_str_list *enums_it = &dummy;
   bool enum_class              = false;
@@ -535,19 +548,8 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
   if (!ts_node_is_null(tmp)) {
     /* struct type_name { ... }; */
     type_name = sp_struct_value(ctx, tmp);
-  } else {
-    TSNode parent = ts_node_parent(subject);
-    if (!ts_node_is_null(parent)) {
-      if (strcmp(ts_node_type(parent), "type_definition") == 0) {
-        tmp = find_direct_chld_by_type(parent, "type_identifier");
-        if (!ts_node_is_null(tmp)) {
-          /* typedef struct * { ... } type_name; */
-          type_name_t = true;
-          type_name   = sp_struct_value(ctx, tmp);
-        }
-      }
-    }
   }
+  const char *def_type_name = type_name ? type_name : t_type_name;
 
   tmp = find_direct_chld_by_type(subject, "enumerator_list");
   if (!ts_node_is_null(tmp)) {
@@ -567,16 +569,16 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     } //for
   }
 
-  if (!type_name) {
+  if (!def_type_name) {
     res = EXIT_FAILURE;
     goto Lout;
   }
 
   sp_str_append(&buf, "static inline const char* sp_debug_");
-  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, def_type_name);
   sp_str_append(&buf, "(const ");
-  sp_str_append(&buf, type_name_t ? "" : "enum ");
-  sp_str_append(&buf, type_name);
+  sp_str_append(&buf, type_name ? "enum " : "");
+  sp_str_append(&buf, def_type_name);
   sp_str_append(&buf, " *in) {\n");
   if (is_enum_bitmask(ctx, subject)) {
     sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
@@ -606,6 +608,10 @@ sp_print_enum(struct sp_ts_Context *ctx, TSNode subject)
     sp_str_append(&buf, "  }\n");
   }
   sp_str_append(&buf, "}\n");
+
+  if (type_name && t_type_name) {
+    sp_do_print_typedef(type_name, t_type_name, &buf);
+  }
 
   /* fprintf(stdout, "%s", sp_str_c_str(&buf)); */
   print_json_response(ctx->output_line, sp_str_c_str(&buf));
@@ -1293,18 +1299,6 @@ __field_to_arg(struct sp_ts_Context *ctx,
 }
 
 static int
-sp_do_print_typedef(const char *type_name, const char *t_type_name, sp_str *buf)
-{
-  sp_str_appends(buf, "static inline const char* sp_debug_", t_type_name, "(",
-                 NULL);
-  sp_str_appends(buf, "const ", t_type_name, " *in", NULL);
-  sp_str_append(buf, ") {\n");
-  sp_str_appends(buf, "  return sp_debug_", type_name, "(in);\n", NULL);
-  sp_str_append(buf, "}\n");
-  return EXIT_SUCCESS;
-}
-
-static int
 sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
 {
   int res           = EXIT_FAILURE;
@@ -1317,7 +1311,10 @@ sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
 
   struct_spec = find_direct_chld_by_type(type_def, "struct_specifier");
   if (ts_node_is_null(struct_spec)) {
-    goto Lerr;
+    struct_spec = find_direct_chld_by_type(type_def, "enum_specifier");
+    if (ts_node_is_null(struct_spec)) {
+      goto Lerr;
+    }
   }
 
   tmp = find_direct_chld_by_type(struct_spec, "type_identifier");
@@ -2069,8 +2066,25 @@ main(int argc, const char *argv[])
 
                   free(t_type_name);
                 } else {
-                  ctx.output_line = sp_find_last_line(found);
-                  res             = sp_print_typedef(&ctx, found);
+                  tmp = find_rec_chld_by_type(found, "enumerator_list");
+                  if (!ts_node_is_null(tmp)) {
+                    char *t_type_name = NULL;
+                    tmp = find_direct_chld_by_type(found, "type_identifier");
+                    if (!ts_node_is_null(tmp)) {
+                      /* typedef enum ... { ... } t_type_name; */
+                      t_type_name = sp_struct_value(&ctx, tmp);
+                    }
+                    tmp = find_direct_chld_by_type(found, enum_spec);
+                    if (!ts_node_is_null(tmp)) {
+                      ctx.output_line = sp_find_last_line(found);
+                      res             = sp_print_enum(&ctx, tmp, t_type_name);
+                    }
+
+                    free(t_type_name);
+                  } else {
+                    ctx.output_line = sp_find_last_line(found);
+                    res             = sp_print_typedef(&ctx, found);
+                  }
                 }
               } else if (strcmp(ts_node_type(found), class_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
@@ -2081,7 +2095,7 @@ main(int argc, const char *argv[])
 
                 if (strcmp(in_type, "crunch") == 0) {
                   ctx.output_line = sp_find_last_line(found);
-                  res             = sp_print_enum(&ctx, found);
+                  res             = sp_print_enum(&ctx, found, NULL);
                 }
               } else if (strcmp(ts_node_type(found), fun_def) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
