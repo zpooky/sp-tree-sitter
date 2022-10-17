@@ -1,6 +1,7 @@
 #include "to_string.h"
 
 #include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "sp_str.h"

@@ -1316,7 +1316,7 @@ sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
   /* debug_subtypes_rec(ctx, type_def, 0); */
 
   struct_spec = find_direct_chld_by_type(type_def, "struct_specifier");
-  if (ts_node_is_null(tmp)) {
+  if (ts_node_is_null(struct_spec)) {
     goto Lerr;
   }
 
@@ -1373,11 +1373,11 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
                  " *", pprefix, NULL);
   sp_str_append(&buf, ") {\n");
   sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
-  sp_str_appends(&buf, "  if (!", pprefix, ") return \"", type_name,
+  sp_str_appends(&buf, "  if (!", pprefix, ") return \"", def_type_name,
                  "(NULL)\";\n", NULL);
   field_it = fields;
-  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", type_name, "(%p){",
-                 NULL);
+  sp_str_appends(&buf, "  snprintf(buf, sizeof(buf), \"", def_type_name,
+                 "(%p){", NULL);
   while (field_it) {
     if (field_it->complete) {
       sp_str_appends(&buf, field_it->variable, "[", field_it->format, "]",
