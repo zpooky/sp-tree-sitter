@@ -1305,19 +1305,19 @@ sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
   sp_str buf        = {0};
   char *type_name   = NULL;
   char *t_type_name = NULL;
-  TSNode struct_spec;
+  TSNode spec;
   TSNode tmp;
   /* debug_subtypes_rec(ctx, type_def, 0); */
 
-  struct_spec = find_direct_chld_by_type(type_def, "struct_specifier");
-  if (ts_node_is_null(struct_spec)) {
-    struct_spec = find_direct_chld_by_type(type_def, "enum_specifier");
-    if (ts_node_is_null(struct_spec)) {
+  spec = find_direct_chld_by_type(type_def, "struct_specifier");
+  if (ts_node_is_null(spec)) {
+    spec = find_direct_chld_by_type(type_def, "enum_specifier");
+    if (ts_node_is_null(spec)) {
       goto Lerr;
     }
   }
 
-  tmp = find_direct_chld_by_type(struct_spec, "type_identifier");
+  tmp = find_direct_chld_by_type(spec, "type_identifier");
   if (!ts_node_is_null(tmp)) {
     type_name = sp_struct_value(ctx, tmp);
   } else {
@@ -2028,21 +2028,8 @@ main(int argc, const char *argv[])
             if (!ts_node_is_null(found)) {
               if (strcmp(ts_node_type(found), struct_spec) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
-                  TSNode tmp;
-                  tmp =
-                    find_direct_chld_by_type(found, "field_declaration_list");
-                  if (!ts_node_is_null(tmp)) {
-                    ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_struct(&ctx, found, NULL);
-                  } else {
-                    ctx.output_line = sp_find_last_line(found);
-                    TSNode type_def = ts_node_parent(found);
-                    if (strcmp(ts_node_type(type_def), "type_definition") ==
-                        0) {
-                      res = sp_print_typedef(&ctx, type_def);
-                      /* debug_subtypes_rec(&ctx, found, 0); */
-                    }
-                  }
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_struct(&ctx, found, NULL);
                 }
               } else if (strcmp(ts_node_type(found), typedef_spec) == 0) {
                 TSNode tmp;
