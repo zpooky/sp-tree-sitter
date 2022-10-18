@@ -549,7 +549,7 @@ sp_print_enum(struct sp_ts_Context *ctx,
     /* struct type_name { ... }; */
     type_name = sp_struct_value(ctx, tmp);
   }
-  const char *def_type_name = type_name ? type_name : t_type_name;
+  const char *def_type_name = type_name ?: t_type_name;
 
   tmp = find_direct_chld_by_type(subject, "enumerator_list");
   if (!ts_node_is_null(tmp)) {
@@ -1099,8 +1099,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
       ++complete;
     } else {
       fprintf(stderr, "%s: Incomplete: var:%s: type:%s\n", __func__,
-              field_it->variable ? field_it->variable : "NULL",
-              field_it->type ? field_it->type : "NULL");
+              field_it->variable ?: "NULL", field_it->type ?: "NULL");
     }
     field_it = field_it->next;
     if ((line_length + sp_str_length(&line_buf)) > MAX_LINE) {
@@ -1308,35 +1307,59 @@ sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
   TSNode spec;
   TSNode tmp;
   /* debug_subtypes_rec(ctx, type_def, 0); */
+  sp_str_init(&buf, 0);
+
+  // read 2 "type_identifier"
 
   spec = find_direct_chld_by_type(type_def, "struct_specifier");
   if (ts_node_is_null(spec)) {
     spec = find_direct_chld_by_type(type_def, "enum_specifier");
-    if (ts_node_is_null(spec)) {
+  }
+
+  if (!ts_node_is_null(spec)) {
+    tmp = find_direct_chld_by_type(spec, "type_identifier");
+    if (!ts_node_is_null(tmp)) {
+      type_name = sp_struct_value(ctx, tmp);
+    } else {
       goto Lerr;
     }
-  }
 
-  tmp = find_direct_chld_by_type(spec, "type_identifier");
-  if (!ts_node_is_null(tmp)) {
-    type_name = sp_struct_value(ctx, tmp);
+    tmp = find_direct_chld_by_type(type_def, "type_identifier");
+    if (!ts_node_is_null(tmp)) {
+      t_type_name = sp_struct_value(ctx, tmp);
+    } else {
+      goto Lerr;
+    }
+
+    sp_do_print_typedef(type_name, t_type_name, &buf);
+    print_json_response(ctx->output_line, sp_str_c_str(&buf));
+
+    res = EXIT_SUCCESS;
   } else {
-    goto Lerr;
+    /* typedef type type_t; */
+    uint32_t i;
+    for (i = 0; i < ts_node_child_count(type_def); ++i) {
+      TSNode child          = ts_node_child(type_def, i);
+      const char *node_type = ts_node_type(child);
+      if (strcmp(node_type, "type_identifier") == 0) {
+        if (type_name == NULL) {
+          type_name = sp_struct_value(ctx, child);
+        } else if (t_type_name == NULL) {
+          t_type_name = sp_struct_value(ctx, child);
+          break;
+        }
+      }
+    }
+
+    if (!type_name || !t_type_name) {
+      goto Lerr;
+    }
+
+    sp_do_print_typedef(type_name, t_type_name, &buf);
+    print_json_response(ctx->output_line, sp_str_c_str(&buf));
+
+    res = EXIT_SUCCESS;
   }
-
-  tmp = find_direct_chld_by_type(type_def, "type_identifier");
-  if (!ts_node_is_null(tmp)) {
-    t_type_name = sp_struct_value(ctx, tmp);
-  } else {
-    goto Lerr;
-  }
-
-  sp_str_init(&buf, 0);
-
-  sp_do_print_typedef(type_name, t_type_name, &buf);
-  print_json_response(ctx->output_line, sp_str_c_str(&buf));
-
-  res = EXIT_SUCCESS;
 Lerr:
   free(t_type_name);
   free(type_name);
@@ -1362,7 +1385,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
 
   (void)ctx;
 
-  const char *def_type_name = type_name ? type_name : t_type_name;
+  const char *def_type_name = type_name ?: t_type_name;
 
   sp_str_appends(&buf, "static inline const char* sp_debug_", def_type_name,
                  "(", NULL);
@@ -1382,7 +1405,7 @@ sp_do_print_struct(struct sp_ts_Context *ctx,
       ++complete;
     } else {
       fprintf(stderr, "%s: Incomplete: %s\n", __func__,
-              field_it->variable ? field_it->variable : "NULL");
+              field_it->variable ?: "NULL");
     }
     field_it = field_it->next;
   } //while
@@ -1492,7 +1515,7 @@ sp_do_print_class(struct sp_ts_Context *ctx,
       ++complete;
     } else {
       fprintf(stderr, "%s: Incomplete: %s\n", __func__,
-              field_it->variable ? field_it->variable : "NULL");
+              field_it->variable ?: "NULL");
     }
     field_it = field_it->next;
   } //while
@@ -2026,51 +2049,69 @@ main(int argc, const char *argv[])
             TSNode found = sp_find_parent(highligted, struct_spec, typedef_spec,
                                           enum_spec, fun_def, class_spec);
             if (!ts_node_is_null(found)) {
+              /* fprintf(stderr, "%s:ts_node_type(found):%s\n", __func__, ts_node_type(found)); */
               if (strcmp(ts_node_type(found), struct_spec) == 0) {
+
                 if (strcmp(in_type, "crunch") == 0) {
-                  ctx.output_line = sp_find_last_line(found);
-                  res             = sp_print_struct(&ctx, found, NULL);
+                  TSNode tmp;
+                  debug_subtypes_rec(&ctx, found, 0);
+                  tmp =
+                    find_direct_chld_by_type(found, "field_declaration_list");
+                  if (ts_node_is_null(tmp)) {
+                    /* forward def:
+                     *   struct type;
+                     */
+                    print_json_empty_response();
+                    res = EXIT_SUCCESS;
+                  } else {
+                    ctx.output_line = sp_find_last_line(found);
+                    res             = sp_print_struct(&ctx, found, NULL);
+                  }
                 }
               } else if (strcmp(ts_node_type(found), typedef_spec) == 0) {
-                TSNode tmp;
-                tmp = find_rec_chld_by_type(found, "field_declaration_list");
-                if (!ts_node_is_null(tmp)) {
-                  char *t_type_name = NULL;
-                  tmp = find_direct_chld_by_type(found, "type_identifier");
-                  if (!ts_node_is_null(tmp)) {
-                    /* typedef struct ... { ... } t_type_name; */
-                    t_type_name = sp_struct_value(&ctx, tmp);
-                  }
-                  /* fprintf(stderr, "%s:t_type_name[%s]\n", __func__, */
-                  /*         t_type_name); */
-                  /* debug_subtypes_rec(&ctx, found, 0); */
+                if (strcmp(in_type, "crunch") == 0) {
+                  TSNode tmp;
+                  debug_subtypes_rec(&ctx, found, 0);
 
-                  tmp = find_direct_chld_by_type(found, struct_spec);
-                  if (!ts_node_is_null(tmp)) {
-                    ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_struct(&ctx, tmp, t_type_name);
-                  }
-
-                  free(t_type_name);
-                } else {
-                  tmp = find_rec_chld_by_type(found, "enumerator_list");
+                  tmp = find_rec_chld_by_type(found, "field_declaration_list");
                   if (!ts_node_is_null(tmp)) {
                     char *t_type_name = NULL;
                     tmp = find_direct_chld_by_type(found, "type_identifier");
                     if (!ts_node_is_null(tmp)) {
-                      /* typedef enum ... { ... } t_type_name; */
+                      /* typedef struct ... { ... } t_type_name; */
                       t_type_name = sp_struct_value(&ctx, tmp);
                     }
-                    tmp = find_direct_chld_by_type(found, enum_spec);
+                    /* fprintf(stderr, "%s:t_type_name[%s]\n", __func__, */
+                    /*         t_type_name); */
+                    /* debug_subtypes_rec(&ctx, found, 0); */
+
+                    tmp = find_direct_chld_by_type(found, struct_spec);
                     if (!ts_node_is_null(tmp)) {
                       ctx.output_line = sp_find_last_line(found);
-                      res             = sp_print_enum(&ctx, tmp, t_type_name);
+                      res             = sp_print_struct(&ctx, tmp, t_type_name);
                     }
 
                     free(t_type_name);
                   } else {
-                    ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_typedef(&ctx, found);
+                    tmp = find_rec_chld_by_type(found, "enumerator_list");
+                    if (!ts_node_is_null(tmp)) {
+                      char *t_type_name = NULL;
+                      tmp = find_direct_chld_by_type(found, "type_identifier");
+                      if (!ts_node_is_null(tmp)) {
+                        /* typedef enum ... { ... } t_type_name; */
+                        t_type_name = sp_struct_value(&ctx, tmp);
+                      }
+                      tmp = find_direct_chld_by_type(found, enum_spec);
+                      if (!ts_node_is_null(tmp)) {
+                        ctx.output_line = sp_find_last_line(found);
+                        res             = sp_print_enum(&ctx, tmp, t_type_name);
+                      }
+
+                      free(t_type_name);
+                    } else {
+                      ctx.output_line = sp_find_last_line(found);
+                      res             = sp_print_typedef(&ctx, found);
+                    }
                   }
                 }
               } else if (strcmp(ts_node_type(found), class_spec) == 0) {
@@ -2079,10 +2120,20 @@ main(int argc, const char *argv[])
                   res             = sp_print_class(&ctx, found);
                 }
               } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
-
+                /* debug_subtypes_rec(&ctx, found, 0); */
                 if (strcmp(in_type, "crunch") == 0) {
-                  ctx.output_line = sp_find_last_line(found);
-                  res             = sp_print_enum(&ctx, found, NULL);
+                  TSNode tmp;
+                  tmp = find_direct_chld_by_type(found, "enumerator_list");
+                  if (ts_node_is_null(tmp)) {
+                    /* forward def:
+                     *   enum type;
+                     */
+                    print_json_empty_response();
+                    res = EXIT_SUCCESS;
+                  } else {
+                    ctx.output_line = sp_find_last_line(found);
+                    res             = sp_print_enum(&ctx, found, NULL);
+                  }
                 }
               } else if (strcmp(ts_node_type(found), fun_def) == 0) {
                 if (strcmp(in_type, "crunch") == 0) {
