@@ -515,12 +515,14 @@ print_json_response(uint32_t line, const char *data)
 static int
 sp_do_print_typedef(const char *type_name, const char *t_type_name, sp_str *buf)
 {
-  sp_str_appends(buf, "static inline const char* sp_debug_", t_type_name, "(",
-                 NULL);
-  sp_str_appends(buf, "const ", t_type_name, " *in", NULL);
-  sp_str_append(buf, ") {\n");
-  sp_str_appends(buf, "  return sp_debug_", type_name, "(in);\n", NULL);
-  sp_str_append(buf, "}\n");
+  if (strcmp(type_name, t_type_name) != 0) {
+    sp_str_appends(buf, "static inline const char* sp_debug_", t_type_name, "(",
+                   NULL);
+    sp_str_appends(buf, "const ", t_type_name, " *in", NULL);
+    sp_str_append(buf, ") {\n");
+    sp_str_appends(buf, "  return sp_debug_", type_name, "(in);\n", NULL);
+    sp_str_append(buf, "}\n");
+  }
   return EXIT_SUCCESS;
 }
 
@@ -582,6 +584,7 @@ sp_print_enum(struct sp_ts_Context *ctx,
   sp_str_append(&buf, " *in) {\n");
   if (is_enum_bitmask(ctx, subject)) {
     sp_str_append(&buf, "  static char buf[1024] = {'\\0'};\n");
+    sp_str_append(&buf, "  buf[0] = '\\0';\n");
     sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
     enums_it = dummy.next;
     for (; enums_it; enums_it = enums_it->next) {
@@ -1084,7 +1087,7 @@ sp_do_print_function(struct sp_ts_Context *ctx, struct arg_list *const fields)
     sp_str_append(&buf, "  f_error(");
   } else if (ctx->domain == AX_ERROR_DOMAIN) {
     sp_str_append(&buf, "  ax_error(");
-    trailing_newline = false;
+    /* trailing_newline = false; */
   } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
     sp_str_append(&buf, "  printk(KERN_ERR ");
   }
@@ -1351,6 +1354,7 @@ sp_print_typedef(struct sp_ts_Context *ctx, TSNode type_def)
       }
     }
 
+    /* debug_subtypes_rec(&ctx, type_def, 0); */
     if (!type_name || !t_type_name) {
       goto Lerr;
     }
@@ -1902,7 +1906,7 @@ sp_print_branches(struct sp_ts_Context *ctx, TSNode subject)
             sp_str_append(&buf, "  f_error(");
           } else if (ctx->domain == AX_ERROR_DOMAIN) {
             sp_str_append(&buf, "  ax_error(");
-            trailing_newline = false;
+            /* trailing_newline = false; */
           } else if (ctx->domain == LINUX_KERNEL_DOMAIN) {
             sp_str_append(&buf, "printk(KERN_ERR ");
           }
@@ -2168,11 +2172,12 @@ main(int argc, const char *argv[])
 //TODO when we make assumption example (unsigned char*xxx, size_t l_xxx) make a comment in the debug function
 // example: NOTE: assumes xxx and l_xxx is related
 
-// TODO generate 2 print function typedef struct name {} name_t;
 // TODO when leader+m try to paste after all variable inits
+// TODO strerror() support
 
 // TODO detect cycles
 // struct dummy_list {
 //   struct dummy_list *rec;
 // };
-// TODO c++ template arguments: vector<int>, map<int,int>
+// TODO what to do with c++ template arguments: vector<int>, map<int,int>
+//
