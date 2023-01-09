@@ -1820,6 +1820,26 @@ __format_libc(struct sp_ts_Context *ctx,
     result->complex_printf = true;
 
     sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "timeval") == 0) {
+    /*
+     * struct timeval {
+     * time_t      tv_sec;  #<{(| Seconds |)}>#
+     * suseconds_t tv_usec; #<{(| Microseconds |)}>#
+     * };
+     */
+    sp_str buf_tmp;
+    result->format = "%s(%jd), %l";
+
+    sp_str_init(&buf_tmp, 0);
+    sp_str_appends(&buf_tmp, //
+                   "asctime(", //
+                   "gmtime(&", pprefix, result->variable, ")", "), (intmax_t)",
+                   pprefix, result->variable, NULL);
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+
+    sp_str_free(&buf_tmp);
   } else {
     return false;
   }
@@ -2053,6 +2073,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "guint8") == 0 || //
                strcmp(result->type, "uint8") == 0 || //
                strcmp(result->type, "u8") == 0 || //
+               strcmp(result->type, "_u8") == 0 || //
+               strcmp(result->type, "__u8") == 0 || //
                strcmp(result->type, "uint8_t") == 0) {
       if (result->pointer) {
         /* TODO if pointer hex? */
@@ -2066,6 +2088,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "gshort") == 0 || //
                strcmp(result->type, "gint16") == 0 || //
                strcmp(result->type, "int16") == 0 || //
+               strcmp(result->type, "__i16") == 0 || //
+               strcmp(result->type, "_i16") == 0 || //
                strcmp(result->type, "i16") == 0 || //
                strcmp(result->type, "int16_t") == 0) {
       __format_numeric(result, pprefix, "%d");
@@ -2073,6 +2097,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "gushort") == 0 || //
                strcmp(result->type, "guint16") == 0 || //
                strcmp(result->type, "uint16") == 0 || //
+               strcmp(result->type, "__u16") == 0 || //
+               strcmp(result->type, "_u16") == 0 || //
                strcmp(result->type, "u16") == 0 || //
                strcmp(result->type, "uint16_t") == 0) {
       __format_numeric(result, pprefix, "%u");
@@ -2080,7 +2106,12 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "signed int") == 0 || //
                strcmp(result->type, "gint") == 0 || //
                strcmp(result->type, "gint32") == 0 || //
+               strcmp(result->type, "__i32") == 0 || //
+               strcmp(result->type, "_i32") == 0 || //
                strcmp(result->type, "i32") == 0 || //
+               strcmp(result->type, "__s32") == 0 || //
+               strcmp(result->type, "_s32") == 0 || //
+               strcmp(result->type, "s32") == 0 || //
                strcmp(result->type, "int32") == 0 || //
                strcmp(result->type, "int32_t") == 0) {
       __format_numeric(result, pprefix, "%d");
@@ -2089,6 +2120,8 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "guint") == 0 || //
                strcmp(result->type, "guint32") == 0 || //
                strcmp(result->type, "uint32") == 0 || //
+               strcmp(result->type, "__u32") == 0 || //
+               strcmp(result->type, "_u32") == 0 || //
                strcmp(result->type, "u32") == 0 || //
                strcmp(result->type, "uint32_t") == 0) {
       __format_numeric(result, pprefix, "%u");
@@ -2104,10 +2137,15 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "gulong") == 0) {
       __format_numeric(result, pprefix, "%lu");
     } else if (strcmp(result->type, "long long") == 0 || //
+               strcmp(result->type, "__s64") == 0 || //
+               strcmp(result->type, "_s64") == 0 || //
+               strcmp(result->type, "s64") == 0 || //
                strcmp(result->type, "long long int") == 0) {
       __format_numeric(result, pprefix, "%lld");
     } else if (strcmp(result->type, "unsigned long long") == 0 || //
                strcmp(result->type, "unsigned long long int") == 0 ||
+               strcmp(result->type, "__u64") == 0 ||
+               strcmp(result->type, "_u64") == 0 ||
                strcmp(result->type, "u64") == 0) {
       __format_numeric(result, pprefix, "%llu");
     } else if (strcmp(result->type, "off_t") == 0) {
