@@ -296,7 +296,7 @@ is_enum_bitmask(struct sp_ts_Context *ctx, TSNode subject)
         //TODO reclaim
         enum_cache[n_enum_cache++] = sp_struct_value(ctx, id);
       }
-    }
+    } //for
 
     for (i = 0; i < ts_node_child_count(enum_list); ++i) {
       TSNode enumerator = ts_node_child(enum_list, i);
@@ -590,7 +590,7 @@ sp_print_enum(struct sp_ts_Context *ctx,
     for (; enums_it; enums_it = enums_it->next) {
       sp_str_appends(&buf, "  if (*in & ", enums_it->value, ") ", NULL);
       sp_str_appends(&buf, "strcat(buf, \"|", enums_it->value, "\");\n", NULL);
-    }
+    } //for
     sp_str_append(&buf, "  return buf;\n");
   } else {
     sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
@@ -605,7 +605,7 @@ sp_print_enum(struct sp_ts_Context *ctx,
       sp_str_append(&buf, ": return \"");
       sp_str_append(&buf, enums_it->value);
       sp_str_append(&buf, "\";\n");
-    }
+    } //for
 
     sp_str_append(&buf, "    default: return \"__UNDEF\";\n");
     sp_str_append(&buf, "  }\n");
@@ -628,7 +628,7 @@ Lout:
     free(enums_it->value);
     free(enums_it);
     enums_it = next;
-  }
+  } //while
 
   return res;
 }
@@ -655,7 +655,7 @@ __rec_search(struct sp_ts_Context *ctx,
     if (!ts_node_is_null(tmp)) {
       return tmp;
     }
-  }
+  } //for
   return empty;
 }
 
@@ -672,7 +672,7 @@ scoped_type_identifier_Type(struct sp_ts_Context *ctx, TSNode subject)
     } else {
       break;
     }
-  }
+  } //while
 
   tmp = find_direct_chld_by_type(subject, "type_identifier");
   if (!ts_node_is_null(tmp)) {
@@ -1984,187 +1984,185 @@ main(int argc, const char *argv[])
   }
   ctx.output_line = pos.row + 1;
 
-  if (mmap_file(in_file, &ctx.file) == 0) {
-    TSParser *parser = ts_parser_new();
-    if (is_cpp_file(in_file)) {
-      const TSLanguage *cpplang = tree_sitter_cpp();
-      ts_parser_set_language(parser, cpplang);
-    } else if (is_c_file(in_file)) {
-      const TSLanguage *clang = tree_sitter_c();
-      ts_parser_set_language(parser, clang);
-    } else {
-      const TSLanguage *clang = tree_sitter_c();
-      ts_parser_set_language(parser, clang);
-    }
-    ctx.domain = get_domain(in_file);
+  if (mmap_file(in_file, &ctx.file) != 0) {
+    return EXIT_FAILURE;
+  }
+  TSParser *parser = ts_parser_new();
+  if (is_cpp_file(in_file)) {
+    const TSLanguage *cpplang = tree_sitter_cpp();
+    ts_parser_set_language(parser, cpplang);
+  } else if (is_c_file(in_file)) {
+    const TSLanguage *clang = tree_sitter_c();
+    ts_parser_set_language(parser, clang);
+  } else {
+    const TSLanguage *clang = tree_sitter_c();
+    ts_parser_set_language(parser, clang);
+  }
+  ctx.domain = get_domain(in_file);
 
-    {
-      TSNode root;
-      ctx.tree = ts_parser_parse_string(parser, NULL, ctx.file.content,
-                                        (uint32_t)ctx.file.length);
-      if (!ctx.tree) {
-        fprintf(stderr, "failed to parse\n");
-        goto Lerr;
-      }
+  TSNode root;
+  ctx.tree = ts_parser_parse_string(parser, NULL, ctx.file.content,
+                                    (uint32_t)ctx.file.length);
+  if (!ctx.tree) {
+    fprintf(stderr, "failed to parse\n");
+    goto Lerr;
+  }
 
-      /* ts_tree_print_dot_graph(tree, stdout); */
-      root = ts_tree_root_node(ctx.tree);
-      if (!ts_node_is_null(root)) {
-        TSNode highligted;
-        highligted = ts_node_descendant_for_point_range(root, pos, pos);
-        if (!ts_node_is_null(highligted)) {
-          if (strcmp(in_type, "locals") == 0) {
-            TSNode fun     = sp_find_parent0(highligted, "function_definition");
-            TSPoint hpoint = ts_node_start_point(highligted);
-            if (ts_node_is_null(fun)) {
-              // we can only print locals inside a function
-              print_json_empty_response();
-              return EXIT_SUCCESS;
-            }
+  /* ts_tree_print_dot_graph(tree, stdout); */
+  root = ts_tree_root_node(ctx.tree);
+  if (!ts_node_is_null(root)) {
+    TSNode highligted;
+    highligted = ts_node_descendant_for_point_range(root, pos, pos);
+    if (!ts_node_is_null(highligted)) {
+      if (strcmp(in_type, "locals") == 0) {
+        TSNode fun     = sp_find_parent0(highligted, "function_definition");
+        TSPoint hpoint = ts_node_start_point(highligted);
+        if (ts_node_is_null(fun)) {
+          // we can only print locals inside a function
+          print_json_empty_response();
+          return EXIT_SUCCESS;
+        }
 
-            if (hpoint.row != pos.row) {
-              TSNode closest           = {0};
-              struct list_TSNode dummy = {0};
-              struct list_TSNode *it;
-              __leafs(&ctx, highligted, &dummy);
-              it = dummy.next;
-              while (it) {
-                struct list_TSNode *tmp = it;
-                closest = closest_before_pos(pos, closest, it->node);
-                it      = it->next;
-                free(tmp);
-              }
-              if (!ts_node_is_null(closest)) {
-                highligted = closest;
-              }
-            }
+        if (hpoint.row != pos.row) {
+          TSNode closest           = {0};
+          struct list_TSNode dummy = {0};
+          struct list_TSNode *it;
+          __leafs(&ctx, highligted, &dummy);
+          it = dummy.next;
+          while (it) {
+            struct list_TSNode *tmp = it;
+            closest = closest_before_pos(pos, closest, it->node);
+            it      = it->next;
+            free(tmp);
+          }
+          if (!ts_node_is_null(closest)) {
+            highligted = closest;
+          }
+        }
 
-            if (strcmp(ts_node_type(highligted), "}") == 0) {
-              highligted = ts_node_parent(highligted);
-            }
-            /* debug_subtypes_rec(&ctx, highligted, 0); */
-            res = sp_print_locals(&ctx, highligted);
-          } else {
-            const char *struct_spec  = "struct_specifier";
-            const char *typedef_spec = "type_definition";
-            const char *class_spec   = "class_specifier";
-            const char *enum_spec    = "enum_specifier";
-            const char *fun_def      = "function_definition";
-            TSNode found = sp_find_parent(highligted, struct_spec, typedef_spec,
-                                          enum_spec, fun_def, class_spec);
-            if (!ts_node_is_null(found)) {
-              /* fprintf(stderr, "%s:ts_node_type(found):%s\n", __func__, ts_node_type(found)); */
-              if (strcmp(ts_node_type(found), struct_spec) == 0) {
+        if (strcmp(ts_node_type(highligted), "}") == 0) {
+          highligted = ts_node_parent(highligted);
+        }
+        /* debug_subtypes_rec(&ctx, highligted, 0); */
+        res = sp_print_locals(&ctx, highligted);
+      } else {
+        const char *struct_spec  = "struct_specifier";
+        const char *typedef_spec = "type_definition";
+        const char *class_spec   = "class_specifier";
+        const char *enum_spec    = "enum_specifier";
+        const char *fun_def      = "function_definition";
+        TSNode found = sp_find_parent(highligted, struct_spec, typedef_spec,
+                                      enum_spec, fun_def, class_spec);
+        if (!ts_node_is_null(found)) {
+          /* fprintf(stderr, "%s:ts_node_type(found):%s\n", __func__, ts_node_type(found)); */
+          if (strcmp(ts_node_type(found), struct_spec) == 0) {
 
-                if (strcmp(in_type, "crunch") == 0) {
-                  TSNode tmp;
-                  debug_subtypes_rec(&ctx, found, 0);
-                  tmp =
-                    find_direct_chld_by_type(found, "field_declaration_list");
-                  if (ts_node_is_null(tmp)) {
-                    /* forward def:
+            if (strcmp(in_type, "crunch") == 0) {
+              TSNode tmp;
+              debug_subtypes_rec(&ctx, found, 0);
+              tmp = find_direct_chld_by_type(found, "field_declaration_list");
+              if (ts_node_is_null(tmp)) {
+                /* forward def:
                      *   struct type;
                      */
-                    print_json_empty_response();
-                    res = EXIT_SUCCESS;
-                  } else {
-                    ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_struct(&ctx, found, NULL);
-                  }
+                print_json_empty_response();
+                res = EXIT_SUCCESS;
+              } else {
+                ctx.output_line = sp_find_last_line(found);
+                res             = sp_print_struct(&ctx, found, NULL);
+              }
+            }
+          } else if (strcmp(ts_node_type(found), typedef_spec) == 0) {
+            if (strcmp(in_type, "crunch") == 0) {
+              TSNode tmp;
+              debug_subtypes_rec(&ctx, found, 0);
+
+              tmp = find_rec_chld_by_type(found, "field_declaration_list");
+              if (!ts_node_is_null(tmp)) {
+                char *t_type_name = NULL;
+                tmp = find_direct_chld_by_type(found, "type_identifier");
+                if (!ts_node_is_null(tmp)) {
+                  /* typedef struct ... { ... } t_type_name; */
+                  t_type_name = sp_struct_value(&ctx, tmp);
                 }
-              } else if (strcmp(ts_node_type(found), typedef_spec) == 0) {
-                if (strcmp(in_type, "crunch") == 0) {
-                  TSNode tmp;
-                  debug_subtypes_rec(&ctx, found, 0);
-
-                  tmp = find_rec_chld_by_type(found, "field_declaration_list");
-                  if (!ts_node_is_null(tmp)) {
-                    char *t_type_name = NULL;
-                    tmp = find_direct_chld_by_type(found, "type_identifier");
-                    if (!ts_node_is_null(tmp)) {
-                      /* typedef struct ... { ... } t_type_name; */
-                      t_type_name = sp_struct_value(&ctx, tmp);
-                    }
-                    /* fprintf(stderr, "%s:t_type_name[%s]\n", __func__, */
-                    /*         t_type_name); */
-                    /* debug_subtypes_rec(&ctx, found, 0); */
-
-                    tmp = find_direct_chld_by_type(found, struct_spec);
-                    if (!ts_node_is_null(tmp)) {
-                      ctx.output_line = sp_find_last_line(found);
-                      res             = sp_print_struct(&ctx, tmp, t_type_name);
-                    }
-
-                    free(t_type_name);
-                  } else {
-                    tmp = find_rec_chld_by_type(found, "enumerator_list");
-                    if (!ts_node_is_null(tmp)) {
-                      char *t_type_name = NULL;
-                      tmp = find_direct_chld_by_type(found, "type_identifier");
-                      if (!ts_node_is_null(tmp)) {
-                        /* typedef enum ... { ... } t_type_name; */
-                        t_type_name = sp_struct_value(&ctx, tmp);
-                      }
-                      tmp = find_direct_chld_by_type(found, enum_spec);
-                      if (!ts_node_is_null(tmp)) {
-                        ctx.output_line = sp_find_last_line(found);
-                        res             = sp_print_enum(&ctx, tmp, t_type_name);
-                      }
-
-                      free(t_type_name);
-                    } else {
-                      ctx.output_line = sp_find_last_line(found);
-                      res             = sp_print_typedef(&ctx, found);
-                    }
-                  }
-                }
-              } else if (strcmp(ts_node_type(found), class_spec) == 0) {
-                if (strcmp(in_type, "crunch") == 0) {
-                  ctx.output_line = sp_find_last_line(found);
-                  res             = sp_print_class(&ctx, found);
-                }
-              } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+                /* fprintf(stderr, "%s:t_type_name[%s]\n", __func__, */
+                /*         t_type_name); */
                 /* debug_subtypes_rec(&ctx, found, 0); */
-                if (strcmp(in_type, "crunch") == 0) {
-                  TSNode tmp;
-                  tmp = find_direct_chld_by_type(found, "enumerator_list");
-                  if (ts_node_is_null(tmp)) {
-                    /* forward def:
-                     *   enum type;
-                     */
-                    print_json_empty_response();
-                    res = EXIT_SUCCESS;
-                  } else {
-                    ctx.output_line = sp_find_last_line(found);
-                    res             = sp_print_enum(&ctx, found, NULL);
-                  }
+
+                tmp = find_direct_chld_by_type(found, struct_spec);
+                if (!ts_node_is_null(tmp)) {
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_struct(&ctx, tmp, t_type_name);
                 }
-              } else if (strcmp(ts_node_type(found), fun_def) == 0) {
-                if (strcmp(in_type, "crunch") == 0) {
-                  /* printf("%s\n", ts_node_string(found)); */
-                  ctx.output_line = sp_find_open_bracket(found);
-                  res             = sp_print_function_args(&ctx, found);
-                } else if (strcmp(in_type, "branches") == 0) {
-                  res = sp_print_branches(&ctx, found);
+
+                free(t_type_name);
+              } else {
+                tmp = find_rec_chld_by_type(found, "enumerator_list");
+                if (!ts_node_is_null(tmp)) {
+                  char *t_type_name = NULL;
+                  tmp = find_direct_chld_by_type(found, "type_identifier");
+                  if (!ts_node_is_null(tmp)) {
+                    /* typedef enum ... { ... } t_type_name; */
+                    t_type_name = sp_struct_value(&ctx, tmp);
+                  }
+                  tmp = find_direct_chld_by_type(found, enum_spec);
+                  if (!ts_node_is_null(tmp)) {
+                    ctx.output_line = sp_find_last_line(found);
+                    res             = sp_print_enum(&ctx, tmp, t_type_name);
+                  }
+
+                  free(t_type_name);
+                } else {
+                  ctx.output_line = sp_find_last_line(found);
+                  res             = sp_print_typedef(&ctx, found);
                 }
               }
-            } else {
-              fprintf(stderr, "not inside a scope\n");
+            }
+          } else if (strcmp(ts_node_type(found), class_spec) == 0) {
+            if (strcmp(in_type, "crunch") == 0) {
+              ctx.output_line = sp_find_last_line(found);
+              res             = sp_print_class(&ctx, found);
+            }
+          } else if (strcmp(ts_node_type(found), enum_spec) == 0) {
+            /* debug_subtypes_rec(&ctx, found, 0); */
+            if (strcmp(in_type, "crunch") == 0) {
+              TSNode tmp;
+              tmp = find_direct_chld_by_type(found, "enumerator_list");
+              if (ts_node_is_null(tmp)) {
+                /* forward def:
+                     *   enum type;
+                     */
+                print_json_empty_response();
+                res = EXIT_SUCCESS;
+              } else {
+                ctx.output_line = sp_find_last_line(found);
+                res             = sp_print_enum(&ctx, found, NULL);
+              }
+            }
+          } else if (strcmp(ts_node_type(found), fun_def) == 0) {
+            if (strcmp(in_type, "crunch") == 0) {
+              /* printf("%s\n", ts_node_string(found)); */
+              ctx.output_line = sp_find_open_bracket(found);
+              res             = sp_print_function_args(&ctx, found);
+            } else if (strcmp(in_type, "branches") == 0) {
+              res = sp_print_branches(&ctx, found);
             }
           }
         } else {
-          fprintf(stderr, "out of range %u,%u\n", pos.row, pos.column);
+          fprintf(stderr, "not inside a scope\n");
         }
-      } else {
-        fprintf(stderr, "Tree is empty \n");
       }
-      ts_tree_delete(ctx.tree);
+    } else {
+      fprintf(stderr, "out of range %u,%u\n", pos.row, pos.column);
     }
-
-  Lerr:
-    ts_parser_delete(parser);
-    /* munmap(file, flength); */
+  } else {
+    fprintf(stderr, "Tree is empty \n");
   }
+  ts_tree_delete(ctx.tree);
+
+Lerr:
+  ts_parser_delete(parser);
+  /* munmap(file, flength); */
 
   return res;
 }
