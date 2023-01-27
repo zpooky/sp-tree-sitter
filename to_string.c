@@ -1620,13 +1620,7 @@ __format_sd(struct sp_ts_Context *ctx,
         sp_str_append(&buf_tmp, ") ? \"TRUE\" : \"FALSE\"");
       }
 #else
-    result->format = "%p:open[%d]ready[%d]";
-    if (result->pointer) {
-      sp_str_appends(&buf_tmp, "(void *)", pprefix, result->variable, NULL);
-    } else {
-      sp_str_appends(&buf_tmp, "(void *)&", pprefix, result->variable, NULL);
-    }
-    sp_str_append(&buf_tmp, ", ");
+    result->format = "open[%d]ready[%d]";
 
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, NULL);
@@ -1828,13 +1822,13 @@ __format_libc(struct sp_ts_Context *ctx,
      * };
      */
     sp_str buf_tmp;
-    result->format = "%s(%jd), %l";
+    result->format = "%jd, %jd";
 
     sp_str_init(&buf_tmp, 0);
     sp_str_appends(&buf_tmp, //
-                   "asctime(", //
-                   "gmtime(&", pprefix, result->variable, ")", "), (intmax_t)",
-                   pprefix, result->variable, NULL);
+                   "(intmax_t) ", pprefix, result->variable, ".tv_sec",
+                   ", (intmax_t) ", pprefix, result->variable, ".tv_usec",
+                   NULL);
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
@@ -2151,31 +2145,31 @@ __format(struct sp_ts_Context *ctx,
     } else if (strcmp(result->type, "off_t") == 0) {
       __format_numeric(result, pprefix, "%jd");
     } else if (strcmp(result->type, "goffset") == 0) {
-      result->format = "%\"G_GOFFSET_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GOFFSET_FORMAT\"");
     } else if (strcmp(result->type, "size_t") == 0) {
       __format_numeric(result, pprefix, "%zu");
     } else if (strcmp(result->type, "gsize") == 0) {
-      result->format = "%\"G_GSIZE_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GSIZE_FORMAT\"");
     } else if (strcmp(result->type, "ssize_t") == 0) {
       __format_numeric(result, pprefix, "%zd");
     } else if (strcmp(result->type, "gssize") == 0) {
-      result->format = "%\"G_GSSIZE_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GSSIZE_FORMAT\"");
     } else if (strcmp(result->type, "int64_t") == 0) {
-      result->format = "%\"PRId64\"";
+      __format_numeric(result, pprefix, "%\"PRId64\"");
     } else if (strcmp(result->type, "uint64_t") == 0) {
-      result->format = "%\"PRIu64\"";
+      __format_numeric(result, pprefix, "%\"PRIu64\"");
     } else if (strcmp(result->type, "gint64") == 0) {
-      result->format = "%\"G_GINT64_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GINT64_FORMAT\"");
     } else if (strcmp(result->type, "guint64") == 0) {
-      result->format = "%\"G_GUINT64_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GUINT64_FORMAT\"");
     } else if (strcmp(result->type, "uintptr_t") == 0) {
-      result->format = "%\"PRIuPTR\"";
+      __format_numeric(result, pprefix, "%\"PRIuPTR\"");
     } else if (strcmp(result->type, "guintptr") == 0) {
-      result->format = "%\"G_GUINTPTR_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GUINTPTR_FORMAT\"");
     } else if (strcmp(result->type, "iintptr_t") == 0) {
-      result->format = "%\"PRIiPTR\"";
+      __format_numeric(result, pprefix, "%\"PRIiPTR\"");
     } else if (strcmp(result->type, "gintptr") == 0) {
-      result->format = "%\"G_GINTPTR_FORMAT\"";
+      __format_numeric(result, pprefix, "%\"G_GINTPTR_FORMAT\"");
     } else if (strcmp(result->type, "float") == 0 || //
                strcmp(result->type, "gfloat") == 0 || //
                strcmp(result->type, "double") == 0 || //
