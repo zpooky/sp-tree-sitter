@@ -1092,6 +1092,145 @@ __format_gst(struct sp_ts_Context *ctx,
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstStructure") == 0) {
+    /* TODO free gst_structure_to_string */
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " gst_structure_to_string(", pprefix, result->variable,
+                     ")", " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "gst_structure_to_string(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstCaps") == 0) {
+    /* TODO free gst_caps_to_string */
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " gst_caps_to_string(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "gst_caps_to_string(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstElement") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " GST_ELEMENT_NAME(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "GST_ELEMENT_NAME(&", pprefix, result->variable,
+                     ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+
+  } else if (strcmp(result->type, "GstMessage") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " GST_MESSAGE_TYPE_NAME(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "GST_MESSAGE_TYPE_NAME(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstEvent") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " GST_EVENT_TYPE_NAME(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "GST_EVENT_TYPE_NAME(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstDebugCategory") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " gst_debug_category_get_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "gst_debug_category_get_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstDebugMessage") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " gst_debug_message_get(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "gst_debug_message_get(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GstDebugLevel") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " gst_debug_level_get_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "gst_debug_level_get_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
   } else if (strcmp(result->type, "GstPollFD") == 0) {
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
@@ -1120,6 +1259,7 @@ __format_glib(struct sp_ts_Context *ctx,
 {
   (void)ctx;
   if (strcmp(result->type, "GObject") == 0) {
+#if 0
 #if 0
 typedef struct _GObject                  GObject;
 struct  _GObject {
@@ -1158,6 +1298,25 @@ struct _GTypeQuery {
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
+#else
+
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(", pprefix, result->variable, "))",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(&", pprefix,
+                     result->variable, "))", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+#endif
   } else if (strcmp(result->type, "GObjectClass") == 0) {
 #if 0
 struct  _GObjectClass {
