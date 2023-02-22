@@ -1069,10 +1069,10 @@ struct snd_soc_pcm_runtime {
     result->format = "%s";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
-                     " snd_pcm_format_name(", pprefix, result->variable, ")",
+                     " snd_pcm_format_name(*", pprefix, result->variable, ")",
                      " : \"(NULL)\"", NULL);
     } else {
-      sp_str_appends(&buf_tmp, "snd_pcm_format_name(&", pprefix,
+      sp_str_appends(&buf_tmp, "snd_pcm_format_name(", pprefix,
                      result->variable, ")", NULL);
     }
     free(result->complex_raw);
