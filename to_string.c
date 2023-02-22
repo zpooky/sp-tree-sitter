@@ -1062,11 +1062,79 @@ struct snd_soc_pcm_runtime {
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "snd_pcm_format_t") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " snd_pcm_format_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "snd_pcm_format_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "snd_pcm_t") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " snd_pcm_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "snd_pcm_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "snd_pcm_chmap_position") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " snd_pcm_chmap_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "snd_pcm_chmap_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "snd_pcm_chmap_type") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
+                     " snd_pcm_chmap_type_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "snd_pcm_chmap_type_name(&", pprefix,
+                     result->variable, ")", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
   } else {
     return false;
   }
   return true;
-}
+} //__format_alsa()
 
 static bool
 __format_gst(struct sp_ts_Context *ctx,
@@ -1187,8 +1255,8 @@ __format_gst(struct sp_ts_Context *ctx,
     result->format = "%s";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
-                     " gst_debug_category_get_name(", pprefix, result->variable, ")",
-                     " : \"(NULL)\"", NULL);
+                     " gst_debug_category_get_name(", pprefix, result->variable,
+                     ")", " : \"(NULL)\"", NULL);
     } else {
       sp_str_appends(&buf_tmp, "gst_debug_category_get_name(&", pprefix,
                      result->variable, ")", NULL);
@@ -1221,8 +1289,8 @@ __format_gst(struct sp_ts_Context *ctx,
     result->format = "%s";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
-                     " gst_debug_level_get_name(", pprefix, result->variable, ")",
-                     " : \"(NULL)\"", NULL);
+                     " gst_debug_level_get_name(", pprefix, result->variable,
+                     ")", " : \"(NULL)\"", NULL);
     } else {
       sp_str_appends(&buf_tmp, "gst_debug_level_get_name(&", pprefix,
                      result->variable, ")", NULL);
@@ -1306,11 +1374,11 @@ struct _GTypeQuery {
     result->format = "%s";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
-                     " G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(", pprefix, result->variable, "))",
-                     " : \"(NULL)\"", NULL);
+                     " G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(", pprefix,
+                     result->variable, "))", " : \"(NULL)\"", NULL);
     } else {
-      sp_str_appends(&buf_tmp, "G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(&", pprefix,
-                     result->variable, "))", NULL);
+      sp_str_appends(&buf_tmp, "G_OBJECT_CLASS_NAME(G_OBJECT_GET_CLASS(&",
+                     pprefix, result->variable, "))", NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -2332,6 +2400,7 @@ __format(struct sp_ts_Context *ctx,
                strcmp(result->type, "long unsigned int") == 0 || //
                strcmp(result->type, "snd_pcm_uframes_t") == 0 || //
                strcmp(result->type, "unsigned long") == 0 || //
+               strcmp(result->type, "snd_pcm_uframes_t") == 0 || //
                strcmp(result->type, "gulong") == 0) {
       __format_numeric(result, pprefix, "%lu");
     } else if (strcmp(result->type, "long long") == 0 || //
