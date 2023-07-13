@@ -1089,8 +1089,8 @@ struct snd_soc_pcm_runtime {
                      " snd_pcm_name(", pprefix, result->variable, ")",
                      " : \"(NULL)\"", NULL);
     } else {
-      sp_str_appends(&buf_tmp, "snd_pcm_name(&", pprefix,
-                     result->variable, ")", NULL);
+      sp_str_appends(&buf_tmp, "snd_pcm_name(&", pprefix, result->variable, ")",
+                     NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
@@ -1120,8 +1120,8 @@ struct snd_soc_pcm_runtime {
     result->format = "%s";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ?",
-                     " snd_pcm_chmap_type_name(", pprefix, result->variable, ")",
-                     " : \"(NULL)\"", NULL);
+                     " snd_pcm_chmap_type_name(", pprefix, result->variable,
+                     ")", " : \"(NULL)\"", NULL);
     } else {
       sp_str_appends(&buf_tmp, "snd_pcm_chmap_type_name(&", pprefix,
                      result->variable, ")", NULL);
@@ -1971,32 +1971,37 @@ __format_libc(struct sp_ts_Context *ctx,
       sp_str_free(&buf_tmp);
     }
   } else if (strcmp(result->type, "gid_t") == 0 ||
+             strcmp(result->type, "dev_t") == 0 ||
+             strcmp(result->type, "ino_t") == 0 ||
+             strcmp(result->type, "nlink_t") == 0 ||
+             strcmp(result->type, "pid_t") == 0 ||
+             strcmp(result->type, "off_t") == 0 ||
+             strcmp(result->type, "blksize_t") == 0 ||
+             strcmp(result->type, "blkcnt_t") == 0 ||
              strcmp(result->type, "uid_t") == 0) {
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
     result->format = "%u";
     if (result->pointer) {
-      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
-                     "(unsigned int)", pprefix, result->variable, " : 1337",
-                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", "(unsigned)",
+                     pprefix, result->variable, " : 1337", NULL);
     } else {
-      sp_str_appends(&buf_tmp, "(unsigned int)", pprefix, result->variable,
-                     NULL);
+      sp_str_appends(&buf_tmp, "(unsigned)", pprefix, result->variable, NULL);
     }
     free(result->complex_raw);
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
-  } else if (strcmp(result->type, "pid_t") == 0) {
+  } else if (strcmp(result->type, "ino64_t") == 0) {
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
-    result->format = "%u";
+    result->format = "%lu";
     if (result->pointer) {
       sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
-                     "(unsigned int)", pprefix, result->variable, " : 1337",
+                     "(unsigned long)", pprefix, result->variable, " : 1337",
                      NULL);
     } else {
-      sp_str_appends(&buf_tmp, "(unsigned int)", pprefix, result->variable,
+      sp_str_appends(&buf_tmp, "(unsigned long)", pprefix, result->variable,
                      NULL);
     }
     free(result->complex_raw);
@@ -2060,7 +2065,8 @@ __format_libc(struct sp_ts_Context *ctx,
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
-  } else if (strcmp(result->type, "FILE") == 0) {
+  } else if (strcmp(result->type, "FILE") == 0 ||
+             strcmp(result->type, "DIR") == 0) {
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
     result->format = "%p";
@@ -2086,9 +2092,28 @@ __format_libc(struct sp_ts_Context *ctx,
     result->complex_printf = true;
 
     sp_str_free(&buf_tmp);
+
+  } else if (strcmp(result->type, "timespec") == 0) {
+    /* struct timespec {
+     *   time_t tv_sec; #<{(| Seconds |)}>#
+     *   long tv_nsec; #<{(| Nanoseconds |)}>#
+     * };
+     */
+    sp_str buf_tmp;
+    result->format = "%jd, %jd";
+
+    sp_str_init(&buf_tmp, 0);
+    sp_str_appends(&buf_tmp, //
+                   "(intmax_t) ", pprefix, result->variable, ".tv_sec",
+                   ", (intmax_t) ", pprefix, result->variable, ".tv_nsec",
+                   NULL);
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+
+    sp_str_free(&buf_tmp);
   } else if (strcmp(result->type, "timeval") == 0) {
-    /*
-     * struct timeval {
+    /* struct timeval {
      * time_t      tv_sec;  #<{(| Seconds |)}>#
      * suseconds_t tv_usec; #<{(| Microseconds |)}>#
      * };
@@ -2105,6 +2130,249 @@ __format_libc(struct sp_ts_Context *ctx,
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
 
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "dirent") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+    result->format = "d_ino[%u]d_off[%jd]d_reclen[%u]d_type[%s]d_name[%.*s]";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? (unsigned int)",
+                     pprefix, result->variable, "->d_ino : 1337,", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable, "->d_off : 1337,", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? (unsigned int)",
+                     pprefix, result->variable, "->d_reclen : 1337,", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->d_type == DT_BLK ? \"DT_BLK\" : ", pprefix, result->variable,
+        "->d_type == DT_CHR ? \"DT_CHR\" : ", pprefix, result->variable,
+        "->d_type == DT_DIR ? \"DT_DIR\" : ", pprefix, result->variable,
+        "->d_type == DT_FIFO ? \"DT_FIFO\" : ", pprefix, result->variable,
+        "->d_type == DT_LNK ? \"DT_LNK\" : ", pprefix, result->variable,
+        "->d_type == DT_REG ? \"DT_REG\" : ", pprefix, result->variable,
+        "->d_type == DT_SOCK ? \"DT_SOCK\" : ", pprefix, result->variable,
+        "->d_type == DT_UNKNOWN ? \"DT_UNKNOWN\" : \"1337\" : \"\"", ",", NULL);
+      sp_str_appends(&buf_tmp, "256, ", pprefix, result->variable, " ? ",
+                     pprefix, result->variable, "->d_name : \"\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, " (unsigned int)", pprefix, result->variable,
+                     ".d_ino,", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".d_off,", NULL);
+      sp_str_appends(&buf_tmp, " (unsigned int)", pprefix, result->variable,
+                     ".d_reclen,", NULL);
+
+      sp_str_appends(&buf_tmp, " ", pprefix, result->variable, ".d_type,",
+                     NULL);
+      sp_str_appends(
+        &buf_tmp, "  ", pprefix, result->variable,
+        ".d_type == DT_BLK ? \"DT_BLK\" : ", pprefix, result->variable,
+        ".d_type == DT_CHR ? \"DT_CHR\" : ", pprefix, result->variable,
+        ".d_type == DT_DIR ? \"DT_DIR\" : ", pprefix, result->variable,
+        ".d_type == DT_FIFO ? \"DT_FIFO\" : ", pprefix, result->variable,
+        ".d_type == DT_LNK ? \"DT_LNK\" : ", pprefix, result->variable,
+        ".d_type == DT_REG ? \"DT_REG\" : ", pprefix, result->variable,
+        ".d_type == DT_SOCK ? \"DT_SOCK\" : ", pprefix, result->variable,
+        ".d_type == DT_UNKNOWN ? \"DT_UNKNOWN\" : \"1337\"", ",", NULL);
+
+      sp_str_appends(&buf_tmp, "256, ", pprefix, result->variable, ".d_name",
+                     NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "stat") == 0) {
+/* TODO */
+#if 0
+           struct stat {
+               dev_t     st_dev;         /* ID of device containing file */
+               ino_t     st_ino;         /* Inode number */
+               mode_t    st_mode;        /* File type and mode */
+               nlink_t   st_nlink;       /* Number of hard links */
+               uid_t     st_uid;         /* User ID of owner */
+               gid_t     st_gid;         /* Group ID of owner */
+               dev_t     st_rdev;        /* Device ID (if special file) */
+               off_t     st_size;        /* Total size, in bytes */
+               blksize_t st_blksize;     /* Block size for filesystem I/O */
+               blkcnt_t  st_blocks;      /* Number of 512B blocks allocated */
+
+               /* Since Linux 2.6, the kernel supports nanosecond
+                  precision for the following timestamp fields.
+                  For the details before Linux 2.6, see NOTES. */
+
+               struct timespec st_atim;  /* Time of last access */
+               struct timespec st_mtim;  /* Time of last modification */
+               struct timespec st_ctim;  /* Time of last status change */
+
+#define st_atime st_atim.tv_sec /* Backward compatibility */
+#define st_mtime st_mtim.tv_sec
+#define st_ctime st_ctim.tv_sec
+           };
+#endif
+  } else if (strcmp(result->type, "inotify_event") == 0) {
+#if 0
+struct inotify_event {
+  int      wd;       /* watch descriptor */
+  uint32_t mask;     /* mask describing event */
+  uint32_t cookie;   /* unique cookie associating related
+                       events (for rename(2)) */
+  uint32_t len;      /* size of name field */
+  char     name[];   /* optional null-terminated name */
+};
+#endif
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+    result->format = "wd[%d]mask[%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%"
+                     "s]cookie[%u]name[%.*s]";
+
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable, "->wd : 1337, ", NULL);
+      // mask{
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_ACCESS? \"IN_ACCESS,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_MODIFY? \"IN_MODIFY,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_ATTRIB? \"IN_ATTRIB,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_CLOSE_WRITE? \"IN_CLOSE_WRITE,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_CLOSE_NOWRITE? \"IN_CLOSE_NOWRITE,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_OPEN? \"IN_OPEN,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_MOVED_FROM? \"IN_MOVED_FROM,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_MOVED_TO? \"IN_MOVED_TO,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_CREATE? \"IN_CREATE,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_DELETE? \"IN_DELETE,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_DELETE_SELF? \"IN_DELETE_SELF,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_MOVE_SELF? \"IN_MOVE_SELF,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_UNMOUNT? \"IN_UNMOUNT,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_Q_OVERFLOW? \"IN_Q_OVERFLOW,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_IGNORED? \"IN_IGNORED,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_ONLYDIR? \"IN_ONLYDIR,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_DONT_FOLLOW? \"IN_DONT_FOLLOW,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_EXCL_UNLINK? \"IN_EXCL_UNLINK,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_MASK_CREATE? \"IN_MASK_CREATE,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_MASK_ADD? \"IN_MASK_ADD,\":\"\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable,
+                     "->mask & IN_ISDIR? \"IN_ISDIR,\":\"\" : \"\", ", NULL);
+      sp_str_appends(
+        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+        "->mask & IN_ONESHOT? \"IN_ONESHOT,\":\"\" : \"\", ", NULL);
+      //}
+
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable, "->cookie : 1337, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", pprefix,
+                     result->variable, "->len : 0, ", pprefix, result->variable,
+                     " ? ", pprefix, result->variable, "->name : \"\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".wd, ", NULL);
+
+      // mask{
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ACCESS? \"IN_ACCESS,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MODIFY? \"IN_MODIFY,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ATTRIB? \"IN_ATTRIB,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_CLOSE_WRITE? \"IN_CLOSE_WRITE,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_CLOSE_NOWRITE? \"IN_CLOSE_NOWRITE,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_OPEN? \"IN_OPEN,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MOVED_FROM? \"IN_MOVED_FROM,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MOVED_TO? \"IN_MOVED_TO,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_CREATE? \"IN_CREATE,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_DELETE? \"IN_DELETE,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_DELETE_SELF? \"IN_DELETE_SELF,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MOVE_SELF? \"IN_MOVE_SELF,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_UNMOUNT? \"IN_UNMOUNT,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_Q_OVERFLOW? \"IN_Q_OVERFLOW,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_IGNORED? \"IN_IGNORED,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ONLYDIR? \"IN_ONLYDIR,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_DONT_FOLLOW? \"IN_DONT_FOLLOW,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_EXCL_UNLINK? \"IN_EXCL_UNLINK,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MASK_CREATE? \"IN_MASK_CREATE,\" : \"\", ",
+                     NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_MASK_ADD? \"IN_MASK_ADD,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ISDIR? \"IN_ISDIR,\" : \"\", ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable,
+                     ".mask & IN_ONESHOT? \"IN_ONESHOT,\" : \"\", ", NULL);
+      //}
+
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".cookie, ", NULL);
+      sp_str_appends(&buf_tmp, pprefix, result->variable, ".len, ", pprefix,
+                     result->variable, ".name", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
     sp_str_free(&buf_tmp);
   } else {
     return false;
@@ -2178,6 +2446,37 @@ __format_cutil(struct sp_ts_Context *ctx,
                      " : \"(NULL)\"", NULL);
     } else {
       sp_str_appends(&buf_tmp, "sp_str_c_str(&", pprefix, result->variable, ")",
+                     NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "sp_uri") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ", "sp_uri_path(",
+                     pprefix, result->variable, ")", " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "sp_uri_path(&", pprefix, result->variable, ")",
+                     NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "sp_uri2") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, pprefix, result->variable, " ? ",
+                     "sp_uri2_path(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "sp_uri2_path(&", pprefix, result->variable, ")",
                      NULL);
     }
     free(result->complex_raw);
