@@ -85,24 +85,24 @@ typedef struct {
   TSPoint new_end_point;
 } TSInputEdit;
 
-• on_bytes:
- • start row of the changed text (zero-indexed)
- • start column of the changed text
- • byte offset of the changed text (from the start of the buffer)
- • old end row of the changed text
- • old end column of the changed text
- • old end byte length of the changed text
- • new end row of the changed text
- • new end column of the changed text
- • new end byte length of the changed text
+//• on_bytes:
+// • start row of the changed text (zero-indexed)
+// • start column of the changed text
+// • byte offset of the changed text (from the start of the buffer)
+// • old end row of the changed text
+// • old end column of the changed text
+// • old end byte length of the changed text
+// • new end row of the changed text
+// • new end column of the changed text
+// • new end byte length of the changed text
 
-def _on_bytes(bufnr, changed_tick, start_row, start_col, start_byte, old_row, old_col, old_byte, new_row, new_col, new_byte)
-  local old_end_col = old_col + ((old_row == 0) and start_col or 0)
-  local new_end_col = new_col + ((new_row == 0) and start_col or 0)
-  tree.edit(start_byte,start_byte+old_byte,start_byte+new_byte,
-    start_row, start_col,
-    start_row+old_row, old_end_col,
-    start_row+new_row, new_end_col)
+//def _on_bytes(bufnr, changed_tick, start_row, start_col, start_byte, old_row, old_col, old_byte, new_row, new_col, new_byte)
+//  local old_end_col = old_col + ((old_row == 0) and start_col or 0)
+//  local new_end_col = new_col + ((new_row == 0) and start_col or 0)
+//  tree.edit(start_byte,start_byte+old_byte,start_byte+new_byte,
+//    start_row, start_col,
+//    start_row+old_row, old_end_col,
+//    start_row+new_row, new_end_col)
 
 #endif
     ts_tree_edit(old_tree, &edit); /* -> void */

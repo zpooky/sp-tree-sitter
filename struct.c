@@ -145,12 +145,18 @@ get_domain(const char *file)
     return LINUX_KERNEL_DOMAIN;
   if (strcasestr(file, "-modartpec") != NULL)
     return LINUX_KERNEL_DOMAIN;
+  if (strcasestr(file, "-unittest") != NULL)
+    return DEFAULT_DOMAIN;
   if (strcasestr(file, "-workspace-sources-ioboxd") != NULL ||
       strcasestr(file, "-workspace-sources-focusd") != NULL)
     return LOG_ERR_DOMAIN;
   if (strcasestr(file, "-eventbridge-plugins-propertychanged") != NULL)
     return F_ERROR_DOMAIN;
   if (strcasestr(file, "-libevent2") != NULL ||
+      strcasestr(file, "-onewired") != NULL ||
+      strcasestr(file, "-port-manager") != NULL ||
+      strcasestr(file, "-io-port-management-cgi") != NULL ||
+      strcasestr(file, "-io2d") != NULL ||
       strcasestr(file, "-libconfiguration-event") != NULL)
     return AX_ERROR_DOMAIN;
   if (strcasestr(file, "-dists-") != NULL)
