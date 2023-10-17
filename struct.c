@@ -254,6 +254,7 @@ find_rec_chld_by_type(TSNode subject, const char *needle)
 struct sp_str_list;
 struct sp_str_list {
   char *value;
+  bool is_zero;
   struct sp_str_list *next;
 };
 
@@ -537,9 +538,9 @@ sp_print_enum(struct sp_ts_Context *ctx,
               TSNode subject,
               const char *t_type_name)
 {
-  int res = EXIT_SUCCESS;
-  TSNode tmp;
-  sp_str buf;
+  int res                      = EXIT_SUCCESS;
+  TSNode tmp                   = {0};
+  sp_str buf                   = {0};
   char *type_name              = NULL;
   struct sp_str_list dummy     = {0};
   struct sp_str_list *enums_it = &dummy;
@@ -561,8 +562,7 @@ sp_print_enum(struct sp_ts_Context *ctx,
 
   tmp = find_direct_chld_by_type(subject, "enumerator_list");
   if (!ts_node_is_null(tmp)) {
-    uint32_t i;
-    for (i = 0; i < ts_node_child_count(tmp); ++i) {
+    for (uint32_t i = 0; i < ts_node_child_count(tmp); ++i) {
       TSNode enumerator = ts_node_child(tmp, i);
       if (strcmp(ts_node_type(enumerator), "enumerator") == 0) {
         if (ts_node_child_count(enumerator) > 0) {
@@ -571,6 +571,19 @@ sp_print_enum(struct sp_ts_Context *ctx,
             TSNode id  = ts_node_child(enumerator, 0);
             arg->value = sp_struct_value(ctx, id);
             enums_it = enums_it->next = arg;
+
+            id = ts_node_child(enumerator, 2);
+            if (!ts_node_is_null(id) &&
+                strcmp(ts_node_type(id), "number_literal") == 0) {
+              int64_t zero = -1;
+              /* debug_subtypes_rec(ctx, id, 0); */
+              /* printf("===%s\n", sp_struct_value(ctx, id)); */
+              if (parse_int(ctx, id, &zero)) {
+                arg->is_zero = zero == 0;
+              } else {
+                arg->is_zero = false;
+              }
+            }
           }
         }
       }
@@ -594,8 +607,15 @@ sp_print_enum(struct sp_ts_Context *ctx,
     sp_str_append(&buf, "  if (!in) return \"NULL\";\n");
     enums_it = dummy.next;
     for (; enums_it; enums_it = enums_it->next) {
-      sp_str_appends(&buf, "  if (*in & ", enums_it->value, ") ", NULL);
-      sp_str_appends(&buf, "strcat(buf, \"|", enums_it->value, "\");\n", NULL);
+      if (enums_it->is_zero) {
+        sp_str_appends(&buf, "  if (*in == ", enums_it->value, ") ", NULL);
+        sp_str_appends(&buf, "strcat(buf, \"", enums_it->value, "\");\n",
+                       NULL);
+      } else {
+        sp_str_appends(&buf, "  if (*in & ", enums_it->value, ") ", NULL);
+        sp_str_appends(&buf, "strcat(buf, \"|", enums_it->value, "\");\n",
+                       NULL);
+      }
     } //for
     sp_str_append(&buf, "  return buf;\n");
   } else {
@@ -2184,4 +2204,6 @@ Lerr:
 //   struct dummy_list *rec;
 // };
 // TODO what to do with c++ template arguments: vector<int>, map<int,int>
-//
+
+// Example:
+// ./sp_struct_to_string crunch ./test7.c 2 0
