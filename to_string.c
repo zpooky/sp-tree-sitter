@@ -32,6 +32,34 @@ __format_numeric(struct arg_list *result,
 }
 
 static bool
+__format_jansson(struct sp_ts_Context *ctx,
+                 struct arg_list *result,
+                 const char *pprefix)
+{
+  (void)ctx;
+  if (strcmp(result->type, "json_t") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+
+    result->format = "%s";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, "json_dump(", pprefix, result->variable,
+                     ", JSON_COMPACT)", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "json_dump(&", pprefix, result->variable,
+                     ", JSON_COMPACT)", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
+    return true;
+  }
+
+  return false;
+}
+
+static bool
 __format_libxml2(struct sp_ts_Context *ctx,
                  struct arg_list *result,
                  const char *pprefix)
@@ -1851,6 +1879,27 @@ struct _GValue {
     result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
     result->complex_printf = true;
     sp_str_free(&buf_tmp);
+  } else if (strcmp(result->type, "GSource") == 0) {
+    sp_str buf_tmp;
+    sp_str_init(&buf_tmp, 0);
+    result->format = "id[%u]:name[%s]";
+    if (result->pointer) {
+      sp_str_appends(&buf_tmp, "", pprefix, result->variable,
+                     " ? g_source_get_id(", pprefix, result->variable, ")",
+                     " : 1337, ", pprefix, result->variable,
+                     " ? g_source_get_name(", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    } else {
+      sp_str_appends(&buf_tmp, "", pprefix, result->variable,
+                     " ? g_source_get_id(&", pprefix, result->variable, ")",
+                     " : 1337, ", pprefix, result->variable,
+                     " ? g_source_get_name(&", pprefix, result->variable, ")",
+                     " : \"(NULL)\"", NULL);
+    }
+    free(result->complex_raw);
+    result->complex_raw    = strdup(sp_str_c_str(&buf_tmp));
+    result->complex_printf = true;
+    sp_str_free(&buf_tmp);
   } else if (strcmp(result->type, "gpointer") == 0) {
     sp_str buf_tmp;
     sp_str_init(&buf_tmp, 0);
@@ -2807,6 +2856,7 @@ __format(struct sp_ts_Context *ctx,
     } else if (__format_libc(ctx, result, pprefix)) {
     } else if (__format_libcpp(ctx, result, pprefix)) {
     } else if (__format_cutil(ctx, result, pprefix)) {
+    } else if (__format_jansson(ctx, result, pprefix)) {
     } else {
       if (strchr(result->type, ' ') == NULL) {
         const char *prefix = "&";
