@@ -2365,9 +2365,11 @@ struct inotify_event {
       sp_str_appends(
         &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
         "->mask & IN_MOVE_SELF? \"IN_MOVE_SELF,\":\"\" : \"\", ", NULL);
-      sp_str_appends(
-        &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
-        "->mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\":\"\" : \"\", ", NULL);
+      /*
+       * sp_str_appends(
+       *   &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
+       *   "->mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\":\"\" : \"\", ", NULL);
+       */
       sp_str_appends(
         &buf_tmp, pprefix, result->variable, " ? ", pprefix, result->variable,
         "->mask & IN_UNMOUNT? \"IN_UNMOUNT,\":\"\" : \"\", ", NULL);
@@ -2437,9 +2439,11 @@ struct inotify_event {
                      NULL);
       sp_str_appends(&buf_tmp, pprefix, result->variable,
                      ".mask & IN_MOVE_SELF? \"IN_MOVE_SELF,\" : \"\", ", NULL);
-      sp_str_appends(&buf_tmp, pprefix, result->variable,
-                     ".mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\" : \"\", ",
-                     NULL);
+      /*
+       * sp_str_appends(&buf_tmp, pprefix, result->variable,
+       *                ".mask & IN_ALL_EVENTS? \"IN_ALL_EVENTS,\" : \"\", ",
+       *                NULL);
+       */
       sp_str_appends(&buf_tmp, pprefix, result->variable,
                      ".mask & IN_UNMOUNT? \"IN_UNMOUNT,\" : \"\", ", NULL);
       sp_str_appends(&buf_tmp, pprefix, result->variable,

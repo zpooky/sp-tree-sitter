@@ -1,26 +1,5 @@
 #define WASD 1
 
-static int global_static_init = 1;
-extern char* global_extern_init = "wasd";
-const float global_data_init = 1.f;
-volatile float global_volatile_data_init = global_data_init;
-
-static int global_static;
-extern int global_extern;
-int global_data;
-volatile int global_volatile_data;
-
-static struct global_static_struct { int d; } global_struct_instance;
-struct global_struct {
-  int d;
-} global_static_struct_instance;
-
-static const char mvnic_driver_name[] = "ibmvnic";
-static const char ibmvnic_driver_string[] = "IBM System i/p Virtual NIC Driver";
-static const char ibmvnic_driver_arr[] = {{0},{""},1,1,1,};
-
-int kx;
-
 struct struct_wasd {
   int dummy2;
   struct s *w;
@@ -42,25 +21,6 @@ main() {
 
   return 0;
 }
-
-#if 1
-#ifndef DUMMY
-#define DUMMY
-
-#if defined DUMMY2
-static int global_nested_static;
-extern int global_nested_extern;
-int global_nested_data;
-volatile int global_nested_volatile_data;
-static struct dummy2 { int d; } global_nested_struct_instance;
-#endif
-#endif
-#endif
-
-int (*global_fp)(int adasd, struct asd *);
-static int (*global_static_fp)(int adasd, struct asd *);
-extern int (*global_extern_fp)(int adasd, struct asd *);
-volatile int (*global_volatile_fp)(int adasd, struct asd *);
 
 static int
 kkkk(int d) {
